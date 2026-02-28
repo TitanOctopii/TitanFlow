@@ -1,87 +1,53 @@
 # TitanFlow
 
-Orchestration engine for TitanArray. Research, publishing, security, home integration, and automation — all from one system.
+TitanFlow is an AI orchestration microkernel for running autonomous agents with memory, plugins, and safe tool access.
 
-## Quick Start on TitanSarge
+**Tagline:** Distributed intelligence. One organism.
 
+## What You Get
+- Model-agnostic LLM runtime (Ollama, OpenAI, Anthropic, any HTTP endpoint)
+- Persistent memory (mem0) + optional grounding gate
+- Plugin SDK: ToolPlugin, ModulePlugin, HookPlugin
+- Safe tool loop with hard limits
+- Telegram bot interface out of the box
+- Configurable identity via `SOUL.md`
+- Built-in health/ops surfaces
+
+## Quick Start (Local)
 ```bash
-# Clone / copy to Sarge
-cd /opt
-git clone <repo> titanflow  # or scp the directory
-
-# Create virtual environment
-cd /opt/titanflow
-python3.12 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
-
-# Install dependencies
 pip install -e .
 
-# Also need PyJWT for Ghost publishing
-pip install pyjwt
+cp config/titanflow.yaml ./config.local.yaml
+export TITANFLOW_CONFIG=./config.local.yaml
 
-# Copy and edit configuration
-cp config/titanflow.yaml /opt/titanflow/config/titanflow.yaml
-# Edit: add your Telegram bot token, Ghost keys, GitHub token, etc.
-
-# Create data directory
-sudo mkdir -p /data/titanflow
-sudo chown $USER:$USER /data/titanflow
-
-# Set config path
-export TITANFLOW_CONFIG=/opt/titanflow/config/titanflow.yaml
-
-# Run
 python -m titanflow.main
 ```
 
-## Systemd Service
-
-```bash
-sudo cp titanflow.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable titanflow
-sudo systemctl start titanflow
-
-# Check logs
-journalctl -u titanflow -f
-```
-
-## API Endpoints
-
-Once running, available at `http://localhost:8800`:
-
-- `GET /` — Service info
-- `GET /api/health` — Health check
-- `GET /api/status` — Engine status with module info
-- `GET /api/modules` — List all modules
-- `GET /api/llm/health` — Ollama connection status
-- `GET /api/jobs` — Scheduled jobs
-
-## Telegram Commands
-
-- `/status` — Engine overview
-- `/modules` — Active modules
-- `/jobs` — Scheduled tasks
-- `/research` — Research module status
-- `/latest` — Latest high-relevance items
-- `/newspaper` — Publishing status
-- `/publish briefing|digest|weekly` — Force a publish cycle
-
-## Architecture
-
-```
-TitanFlow Engine
-├── Core (FastAPI + EventBus + Scheduler + LLM + Database)
-├── Telegram Gateway (command routing + natural language)
-├── Research Module (RSS feeds, GitHub tracking, LLM analysis)
-├── Newspaper Module (autonomous Ghost publishing to titanflow.space)
-├── Security Module (Phase 2)
-├── Home Module (Phase 2)
-├── Automation Module (Phase 2)
-└── WebPub Module (Phase 2)
-```
+## API
+Once running (default `http://localhost:8800`):
+- `GET /api/health` — health check
+- `GET /api/status` — engine status
+- `GET /api/modules` — modules list
+- `GET /api/llm/health` — LLM connectivity
+- `GET /api/jobs` — scheduled jobs
 
 ## Configuration
+TitanFlow reads a YAML config file plus environment variables.
+- Secrets use `${ENV_VAR}` and should be provided via environment or a secure service file.
+- Example config: `config/titanflow.yaml`
 
-All secrets use `${ENV_VAR}` syntax in YAML — set them as environment variables or in the systemd service file.
+## Plugins
+Plugins are loaded from configured directories and can expose:
+- Tools (LLM tool calls)
+- Modules (background services)
+- Hooks (event listeners)
+
+## Safety
+- Tool loop is bounded and rejects malformed calls.
+- Optional grounding gate can refuse responses when no evidence exists.
+- Secrets are never embedded in prompts.
+
+## License
+MIT
