@@ -86,3 +86,51 @@ titanflow:
       enabled: true
       timeout: 30
       max_output: 4096
+    plugins:
+      enabled: true
+      dirs:
+        - "~/.titanflow/plugins"
+      config:
+        shell-exec:
+          security_mode: "allowlist"
+          allowed_commands:
+            - "ls"
+            - "cat"
+            - "head"
+            - "tail"
+            - "grep"
+            - "find"
+            - "wc"
+            - "git"
+            - "python3"
+            - "pip"
+            - "npm"
+            - "node"
+            - "curl"
+            - "wget"
+            - "ssh"
+            - "scp"
+            - "systemctl"
+            - "journalctl"
+            - "docker"
+            - "date"
+            - "uptime"
+            - "df"
+            - "free"
+            - "uname"
+            - "hostname"
+            - "whoami"
+            - "pwd"
+            - "which"
+            - "echo"
+            - "tree"
+        file-writer:
+          allowed_dirs:
+            - "~/Projects"
+            - "/opt/titanflow"
+            - "/tmp/titanflow"
+        ghost-publish:
+          api_url: "https://titanflow.space"
+          admin_key: "${GHOST_ADMIN_KEY_FLOW}"
+          default_status: "published"
+          default_visibility: "public"

@@ -23,6 +23,7 @@ from titanflow.core.engine import TitanFlowEngine
 from titanflow.modules.codeexec.module import CodeExecModule
 from titanflow.modules.newspaper.module import NewspaperModule
 from titanflow.modules.research.module import ResearchModule
+from titanflow.plugin_manager import PluginManager
 from titanflow.telegram.bot import TelegramGateway
 
 # ─── Logging ──────────────────────────────────────────────
@@ -47,6 +48,7 @@ logger = logging.getLogger("titanflow")
 
 _engine: TitanFlowEngine | None = None
 _telegram: TelegramGateway | None = None
+_plugins: PluginManager | None = None
 
 
 # ─── App Lifecycle ────────────────────────────────────────
@@ -54,7 +56,7 @@ _telegram: TelegramGateway | None = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI lifespan — start/stop TitanFlow engine."""
-    global _engine, _telegram
+    global _engine, _telegram, _plugins
 
     config_path = os.environ.get("TITANFLOW_CONFIG")
     config = load_config(config_path)
@@ -73,15 +75,24 @@ async def lifespan(app: FastAPI):
     # Create engine
     _engine = TitanFlowEngine(config)
 
-    # Register Phase 1 modules
+    # Register Phase 1 modules (defensive: handle both v0.1 and v0.2 constructors)
+    def _try_register(module_cls, name: str):
+        try:
+            _engine.register_module(module_cls(_engine))
+        except TypeError:
+            try:
+                _engine.register_module(module_cls())
+            except Exception:
+                logger.warning("Failed to register module: %s", name)
+
     if config.modules.research.enabled:
-        _engine.register_module(ResearchModule(_engine))
+        _try_register(ResearchModule, "research")
 
     if config.modules.newspaper.enabled:
-        _engine.register_module(NewspaperModule(_engine))
+        _try_register(NewspaperModule, "newspaper")
 
     if config.modules.codeexec.enabled:
-        _engine.register_module(CodeExecModule(_engine))
+        _try_register(CodeExecModule, "codeexec")
 
     # TODO Phase 2+: Register additional modules
     # if config.modules.security.enabled:
@@ -96,8 +107,17 @@ async def lifespan(app: FastAPI):
     # Start engine
     await _engine.start()
 
-    # Start Telegram bot
-    _telegram = TelegramGateway(_engine, config.telegram)
+    # Load plugins
+    if config.modules.plugins.enabled:
+        _plugins = PluginManager(_engine)
+        _plugins.discover()
+        await _plugins.load_all()
+        logger.info("Plugin system ready: %s", _plugins.status())
+    else:
+        _plugins = None
+
+    # Start Telegram bot (with plugin manager if available)
+    _telegram = TelegramGateway(_engine, config.telegram, plugins=_plugins)
     await _telegram.start()
 
     yield
@@ -105,6 +125,8 @@ async def lifespan(app: FastAPI):
     # Shutdown
     if _telegram:
         await _telegram.stop()
+    if _plugins:
+        await _plugins.shutdown()
     if _engine:
         await _engine.shutdown()
 

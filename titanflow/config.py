@@ -122,6 +122,18 @@ class CodeExecConfig(ModuleToggle):
     max_output: int = 4096
 
 
+class PluginConfig(BaseModel):
+    enabled: bool = True
+    dirs: list[str] = Field(default_factory=lambda: ["~/.titanflow/plugins"])
+    enabled_plugins: list[str] | None = None  # None = load all discovered
+    config: dict[str, dict] = Field(default_factory=dict)  # Per-plugin config overrides
+
+    @field_validator("dirs", mode="before")
+    @classmethod
+    def _coerce_none_to_list(cls, v):
+        return v if v is not None else ["~/.titanflow/plugins"]
+
+
 class ModulesConfig(BaseModel):
     security: SecurityModuleConfig = SecurityModuleConfig()
     home: ModuleToggle = ModuleToggle()
@@ -130,6 +142,7 @@ class ModulesConfig(BaseModel):
     research: ResearchModuleConfig = ResearchModuleConfig()
     newspaper: NewspaperModuleConfig = NewspaperModuleConfig()
     codeexec: CodeExecConfig = CodeExecConfig()
+    plugins: PluginConfig = PluginConfig()
 
 
 class TitanFlowConfig(BaseModel):

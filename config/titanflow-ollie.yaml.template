@@ -62,3 +62,47 @@ titanflow:
       processing_batch_size: 5
     newspaper:
       enabled: false
+    plugins:
+      enabled: true
+      dirs:
+        - "~/.titanflow/plugins"
+      config:
+        shell-exec:
+          security_mode: "allowlist"
+          allowed_commands:
+            - "ls"
+            - "cat"
+            - "head"
+            - "tail"
+            - "grep"
+            - "find"
+            - "wc"
+            - "git"
+            - "python3"
+            - "pip"
+            - "date"
+            - "uptime"
+            - "df"
+            - "free"
+            - "uname"
+            - "hostname"
+            - "whoami"
+            - "pwd"
+            - "which"
+            - "echo"
+            - "tree"
+        file-writer:
+          allowed_dirs:
+            - "~/Projects"
+            - "/tmp/titanflow"
+        ghost-publish:
+          api_url: "https://titanflow.space"
+          admin_key: "${GHOST_ADMIN_KEY_FLOW}"
+          default_status: "published"
+          default_visibility: "public"
+        ghost-autopublish:
+          pipeline_logs_dir: "~/Projects/TitanPipeline/logs"
+          interval_seconds: 3600
+          state_file: "~/.titanflow/ghost-autopublish-state.json"
+          post_tags: "titanflow,ops,automated"
+          min_entries: 1

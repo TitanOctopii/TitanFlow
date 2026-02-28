@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import html as _html
 import json
 import logging
 import os
@@ -29,7 +30,12 @@ from titanflow.core.mem0_client import Mem0Client
 
 logger = logging.getLogger("titanflow.telegram")
 
-FOOTER_TPL = "\n\n─────────────────────\n_{icon} TF0.1 · {host} · {elapsed}_"
+FOOTER_TPL = "\n\n─────────────────────\n<i>{icon} TF0.1 · {host} · {elapsed}</i>"
+
+
+def _escape_html(text: str) -> str:
+    """Escape text for Telegram HTML parse_mode. Handles <, >, & safely."""
+    return _html.escape(text, quote=False)
 
 MEMORY_PROMPT_RULE = (
     "You have conversation memory. Previous messages in this chat are replayed to you each turn. "
@@ -241,16 +247,74 @@ def _extract_json(text: str) -> dict | None:
 def _extract_tool_call(text: str) -> dict | None:
     """Try to extract a tool invocation from LLM output.
 
-    Returns {"tool": str, "params": dict} or None if not a tool call.
-    The LLM is instructed to output ONLY a JSON object when calling a tool.
+    Supports two formats (most to least preferred):
+
+    1. CALL_TOOL format — works on all local models including lfm2:24b:
+         CALL_TOOL shell_exec ls -la ~/Projects
+         CALL_TOOL shell_exec {"command": "git status"}
+         CALL_TOOL file_write {"path": "/tmp/x.py", "content": "print(1)"}
+
+    2. JSON-only format — for models that support it (cogito, qwen, etc.):
+         {"tool": "shell_exec", "params": {"command": "ls"}}
+
+    Returns {"tool": str, "params": dict} or None if no tool call found.
+    Strips the CALL_TOOL line from `text` if present — caller is responsible
+    for using the returned dict to execute and feed back results.
     """
+    # ── Format 1: CALL_TOOL prefix ────────────────────────────────────────
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped.upper().startswith("CALL_TOOL "):
+            continue
+
+        rest = stripped[len("CALL_TOOL "):].strip()
+        # rest = "tool_name [args...]"
+        parts = rest.split(None, 1)          # ["tool_name", "rest of args"]
+        if not parts:
+            continue
+
+        tool_name = parts[0].strip()
+        raw_args = parts[1].strip() if len(parts) > 1 else ""
+
+        # Try JSON params first  {"command": "ls", ...}
+        if raw_args.startswith("{"):
+            try:
+                params = json.loads(raw_args)
+                return {"tool": tool_name, "params": params}
+            except json.JSONDecodeError:
+                pass
+
+        # shell_exec: raw string after tool_name becomes the command
+        if tool_name == "shell_exec" and raw_args:
+            return {"tool": "shell_exec", "params": {"command": raw_args}}
+
+        # file_write: try key=value pairs  path=/tmp/x.py content=print(1)
+        if tool_name == "file_write" and raw_args:
+            params: dict = {}
+            for m in re.finditer(r'(\w+)=("[^"]*"|[^\s]+)', raw_args):
+                params[m.group(1)] = m.group(2).strip('"')
+            if "path" in params and "content" in params:
+                return {"tool": "file_write", "params": params}
+
+        # Generic: no args
+        if tool_name and not raw_args:
+            return {"tool": tool_name, "params": {}}
+
+    # ── Format 2: JSON-only (for models that support it) ─────────────────
     parsed = _extract_json(text)
     if parsed and "tool" in parsed and isinstance(parsed.get("tool"), str):
         return {
             "tool": parsed["tool"],
             "params": parsed.get("params", {}),
         }
+
     return None
+
+
+def _strip_tool_call_line(text: str) -> str:
+    """Remove any CALL_TOOL line from the response before showing the user."""
+    lines = [l for l in text.splitlines() if not l.strip().upper().startswith("CALL_TOOL ")]
+    return "\n".join(lines).strip()
 
 
 # Maximum tool invocation rounds per message (prevents infinite loops)
@@ -350,13 +414,20 @@ class TelegramGateway:
             logger.info("Telegram bot stopped")
 
     async def _reply(self, update: Update, text: str, t0: float) -> None:
-        """Send a reply with the TitanFlow footer and elapsed time."""
+        """Send a reply with the TitanFlow footer. Uses HTML parse_mode.
+
+        HTML mode is used instead of Markdown because LLM output routinely
+        contains _, *, [, ] and backticks that break Telegram's Markdown parser.
+        HTML only triggers on explicit <b>, <i>, <code>, <a> tags — everything
+        else is passed through verbatim after escaping < > &.
+        """
         secs = int(time.monotonic() - t0)
         mm, ss = divmod(secs, 60)
         host = HOST_NAMES.get(self._instance_name, self._instance_name)
         icon = INSTANCE_ICONS.get(self._instance_name, "⚡")
         footer = FOOTER_TPL.format(icon=icon, host=host, elapsed=f"{mm:02d}:{ss:02d}")
-        await update.message.reply_text(text + footer, parse_mode="Markdown")
+        safe_body = _escape_html(text)
+        await update.message.reply_text(safe_body + footer, parse_mode="HTML")
 
     def _is_authorized(self, user_id: int) -> bool:
         """Check if a user is authorized to interact with TitanFlow."""
@@ -915,11 +986,17 @@ Or just send me a message — I'll think about it."""
                 )
 
                 # Feed tool result back to LLM
-                messages.append({"role": "assistant", "content": response})
+                # Strip CALL_TOOL line from the assistant turn — it's an
+                # internal directive, not visible prose.
+                visible_assistant = _strip_tool_call_line(response)
+                messages.append({"role": "assistant", "content": visible_assistant or response})
                 messages.append({
                     "role": "user",
                     "content": f"[Tool Result for {tool_name}]\n{tool_result}",
                 })
+
+            # Strip any residual CALL_TOOL lines from the final response
+            response = _strip_tool_call_line(response)
 
             # Guard against blank/empty LLM responses
             if not response or not response.strip():
