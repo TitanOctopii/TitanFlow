@@ -1,4 +1,4 @@
-# TitanFlow Configuration — Ollie (MBA / 10.0.0.154)
+# TitanFlow Configuration — Edge Host
 # Copy to titanflow-ollie.yaml and fill in secrets, or set env vars
 
 titanflow:
@@ -21,11 +21,11 @@ titanflow:
   telegram:
     bot_token: "${TELEGRAM_BOT_TOKEN_OLLIE}"
     allowed_users:
-      - 8568276170  # Kamal
+      - 8568276170  # Papa
 
   integrations:
     home_assistant:
-      url: "http://10.0.0.100:8123"
+      url: "http://localhost:8123"
       token: "${HASS_TOKEN}"
       enabled: false
     opnsense:
@@ -44,7 +44,7 @@ titanflow:
       enabled: false
 
   database:
-    path: "/Users/kamaldatta/Projects/TitanFlow/data/titanflow-ollie.db"
+    path: "/var/lib/titanflow/titanflow-edge.db"
 
   modules:
     security:

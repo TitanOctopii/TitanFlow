@@ -26,7 +26,7 @@ cp config/titanflow.yaml /opt/titanflow/config/titanflow.yaml
 
 # Create data directory
 sudo mkdir -p /data/titanflow
-sudo chown kamal:kamal /data/titanflow
+sudo chown $USER:$USER /data/titanflow
 
 # Set config path
 export TITANFLOW_CONFIG=/opt/titanflow/config/titanflow.yaml

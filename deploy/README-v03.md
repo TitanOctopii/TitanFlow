@@ -2,7 +2,7 @@
 
 ## 1) Sync to Sarge
 ```bash
-rsync -av --delete ./TitanFlow/ kamaldatta@10.0.0.33:/opt/titanflow/
+rsync -av --delete ./TitanFlow/ youruser@sarge-host:/opt/titanflow/
 ```
 
 ## 2) Install systemd units
@@ -23,8 +23,8 @@ sudo systemctl enable --now titanflow-v03-gateway.service
 ## 4) Verify
 ```bash
 systemctl status titanflow-v03.service
-curl http://10.0.0.33:19100/status
-curl http://10.0.0.33:18888/health
+curl http://localhost:19100/status
+curl http://localhost:18888/health
 ```
 
 ## 5) Logs

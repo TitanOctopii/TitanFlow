@@ -39,13 +39,13 @@ class TelegramConfig(BaseModel):
 
 
 class HomeAssistantConfig(BaseModel):
-    url: str = "http://10.0.0.100:8123"
+    url: str = "http://localhost:8123"
     token: str = ""
     enabled: bool = True
 
 
 class OPNsenseConfig(BaseModel):
-    url: str = "https://10.0.0.1"
+    url: str = "https://localhost"
     key: str = ""
     secret: str = ""
     enabled: bool = True
@@ -68,13 +68,13 @@ class GitHubConfig(BaseModel):
 
 
 class TechnitiumConfig(BaseModel):
-    url: str = "http://10.0.0.3:5380"
+    url: str = "http://localhost:5380"
     token: str = ""
     enabled: bool = True
 
 
 class AdGuardConfig(BaseModel):
-    url: str = "http://10.0.0.5"
+    url: str = "http://localhost:3000"
     username: str = ""
     password: str = ""
     enabled: bool = True

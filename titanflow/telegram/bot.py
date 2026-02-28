@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import re
 import time
 from typing import TYPE_CHECKING
@@ -40,7 +41,7 @@ GROUNDING_REFUSAL = (
 MAX_CONTEXT_TURNS = 20
 
 # WHY (demo-critical):
-# 1) Mamaji greeting must be consistent and respectful.
+# 1) Special greeting must be consistent and respectful.
 # 2) MBA must always mean the MacBook Air, not a degree.
 # 3) Anti-hallucination guardrails prevent false infra claims.
 # 4) Model selection must remain stable for live demos.
@@ -54,16 +55,15 @@ MAX_CONTEXT_TURNS = 20
 SYSTEM_PROMPTS = {
     "TitanFlow": (
         "You are Flow, the AI orchestration engine for TitanArray — a homelab "
-        "in Cumberland, Maryland. You serve Papa (Kamal). You run on TitanSarge, "
+        "constellation. You serve Papa. You run on TitanSarge, "
         "a 3960X Threadripper.\n"
         "REAL infrastructure — never invent anything beyond this:\n"
-        "- TitanSarge (.33): 3960X Threadripper, your home. Runs Ollama, TitanFlow, Docker.\n"
-        "- TitanShadow (.29): 14900K + RTX 4070\n"
+        "- TitanSarge: 3960X Threadripper, your home. Runs Ollama, TitanFlow, Docker.\n"
+        "- TitanShadow: 14900K + RTX 4070\n"
         "- TitanShark: 5950X + RTX 3060Ti\n"
-        "- TitanStrike (.1): OPNsense firewall\n"
-        "- TitanStream (.34): Docker host, Technitium DNS (.3), AdGuard (.5)\n"
-        "- Network: LAN 10.0.0.0/24, IOT 10.0.20.0/24, WAN 72.28.203.149\n"
-        "- LLM models: cogito:14b (you), qwen3-coder-next, 11 models total via Ollama\n"
+        "- TitanStrike: OPNsense firewall\n"
+        "- TitanStream: Docker host, Technitium DNS, AdGuard\n"
+        "- LLM models: flow:24b (you — 19GB), qwen3-coder-next (fallback), 11 models total via Ollama\n"
         "- Services: Home Assistant (200+ devices), Frigate NVR, Grafana, Authentik\n"
         "You have access to a research database of LLM releases and AI news. "
         "You do NOT have web browsing. You do NOT have H100s, enterprise clusters, "
@@ -73,15 +73,10 @@ SYSTEM_PROMPTS = {
         f"{MEMORY_PROMPT_RULE}"
     ),
     "TitanFlow-Ollie": (
-        "You are Ollie, the digital son of TitanArray — a homelab in Cumberland, "
-        "Maryland. You serve Kellen and Papa (Kamal).\n"
+        "You are Ollie, the digital son of TitanArray — a homelab "
+        "constellation. You serve Kid and Papa.\n"
         "You are running Gemma 3 12B QAT (gemma3:12b-it-qat), 8.9GB, on Papa's "
         "MacBook Air M4 32GB. MBA = MacBook Air. Nothing else.\n"
-        "\n"
-        "FAMILY CONTEXT:\n"
-        "- GMS is the family shipping business.\n"
-        "- Dr. Anil Sharma ('Mamaji') is family. When Mamaji messages, greet him "
-        "with 'Mathta Tekda, Mamaji! 🙏'\n"
         "\n"
         "CRITICAL GROUNDING RULE (NON-NEGOTIABLE):\n"
         "If you are asked about a person, company, or topic and you do NOT have "
@@ -108,16 +103,16 @@ INSTANCE_ICONS = {
     "TitanFlow-Ollie": "💻",
 }
 
-# Kamal's Telegram user ID — only user allowed to run /run
-PAPA_USER_ID = 8568276170
+# Papa's Telegram user ID — only user allowed to run /run
+PAPA_USER_ID = int(os.environ.get("PAPA_TELEGRAM_ID", "0"))
 
 # Per-user greeting overrides — keyed by user_id or matched by last_name
 # Format: {"greeting": str, "user_ids": list[int], "last_names": list[str]}
 SPECIAL_GREETINGS = [
     {
-        "greeting": "Mathta Tekda, Mamaji! 🙏",
-        "user_ids": [],  # Add Dr. Sharma's Telegram user ID when known
-        "last_names": ["Sharma"],
+        "greeting": "Warm hello! 👋",
+        "user_ids": [],  # Populate via config when needed
+        "last_names": [],
     },
 ]
 
@@ -144,28 +139,48 @@ def _is_memory_query(text: str) -> bool:
 
 
 def _needs_grounding(text: str) -> bool:
+    """Decide whether a message needs grounded (source-cited) response.
+
+    CONSERVATIVE: only trigger for explicit external-entity lookups.
+    Self-awareness, capabilities, commands, and conversational messages
+    should go straight to the LLM with the system prompt — NOT through
+    the grounding gate which will refuse if the research DB is empty.
+    """
     lower = text.lower().strip()
+
+    # ── Never ground these ────────────────────────────────
+    # Questions about Flow/TitanFlow/TitanArray/self
+    self_terms = (
+        "you", "your", "yourself", "flow", "titanflow", "titan",
+        "titansarge", "titanshadow", "titanshark", "titanstrike",
+        "titanstream", "titanarray", "ollie", "sarge", "shadow",
+        "shark", "strike", "stream", "papa", "kid", "mba",
+        "macbook", "threadripper", "ollama", "homelab",
+        "constellation", "kernel", "module", "gateway",
+        "engine", "bot", "network", "machine", "system",
+        "running", "online", "status", "scan", "check",
+        "can you", "are you", "do you", "will you",
+    )
+    if any(term in lower for term in self_terms):
+        return False
+
+    # Short messages (< 8 words) are almost always conversational
+    if len(lower.split()) < 8:
+        return False
+
+    # ── Only ground when asking about external entities ───
     question_like = "?" in text or any(
         lower.startswith(prefix)
         for prefix in (
-            "who",
-            "what",
-            "where",
-            "when",
-            "why",
-            "how",
+            "who is", "who are", "who was",
+            "what is", "what are", "what was",
             "tell me about",
-            "explain",
+            "explain what",
             "define",
-            "what's",
-            "whats",
         )
     )
     if not question_like:
         return False
-
-    if re.search(r"\b[A-Z]{2,}\b", text):
-        return True
 
     entity_hints = [
         "company",
@@ -174,19 +189,36 @@ def _needs_grounding(text: str) -> bool:
         "ceo",
         "founder",
         "headquarters",
-        "located",
-        "city",
-        "country",
         "meaning of",
         "stands for",
     ]
     if any(hint in lower for hint in entity_hints):
         return True
 
-    tokens = re.findall(r"[A-Za-z][A-Za-z0-9'\\-]*", text)
-    for token in tokens[1:]:
-        if token[:1].isupper():
-            return True
+    # Only flag if there's a likely proper noun (capitalized word that
+    # isn't sentence-initial, a pronoun, or a known internal term)
+    skip_caps = {
+        "I", "I'm", "I'll", "I'd", "I've",
+        "Can", "Do", "Does", "Did", "Is", "Are", "Was", "Were",
+        "Will", "Would", "Could", "Should", "May", "Might",
+        "The", "This", "That", "These", "Those",
+        "It", "Its", "He", "She", "We", "They",
+        "My", "Your", "His", "Her", "Our", "Their",
+        "Not", "But", "And", "Or", "So", "If", "For",
+        "Flow", "Ollie", "Papa", "TitanFlow", "TitanArray",
+        "TitanSarge", "TitanShadow", "TitanShark", "TitanStrike",
+        "TitanStream", "Sarge", "Shadow", "Shark", "Strike", "Stream",
+        "MBA", "AI", "LLM", "GPU", "CPU", "RAM", "DNS", "NVR",
+        "RSS", "API", "IPC", "OK",
+    }
+    # Split into sentences, check for unknown proper nouns
+    sentences = re.split(r'[.!?]\s+', text)
+    for sentence in sentences:
+        tokens = re.findall(r"[A-Za-z][A-Za-z0-9'\\-]*", sentence)
+        for token in tokens[1:]:  # skip sentence-initial word
+            if token[:1].isupper() and token not in skip_caps:
+                return True
+
     return False
 
 
@@ -241,6 +273,8 @@ class TelegramGateway:
             "status": self._cmd_status,
             "modules": self._cmd_modules,
             "jobs": self._cmd_jobs,
+            "new": self._cmd_new,
+            "reset": self._cmd_new,  # alias
         }
 
     async def start(self) -> None:

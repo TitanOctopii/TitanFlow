@@ -1,4 +1,4 @@
-# TitanFlow Configuration — Sarge (10.0.0.33)
+# TitanFlow Configuration — Primary Host
 # Copy to titanflow.yaml and fill in secrets, or set env vars
 
 titanflow:
@@ -22,15 +22,15 @@ titanflow:
   telegram:
     bot_token: "${TELEGRAM_BOT_TOKEN}"
     allowed_users:
-      - 8568276170  # Kamal
+      - 8568276170  # Papa
 
   integrations:
     home_assistant:
-      url: "http://10.0.0.100:8123"
+      url: "http://localhost:8123"
       token: "${HASS_TOKEN}"
       enabled: true
     opnsense:
-      url: "https://10.0.0.1"
+      url: "https://localhost"
       key: "${OPNSENSE_KEY}"
       secret: "${OPNSENSE_SECRET}"
       enabled: true
@@ -47,11 +47,11 @@ titanflow:
       token: "${GITHUB_TOKEN}"
       enabled: true
     technitium:
-      url: "http://10.0.0.3:5380"
+      url: "http://localhost:5380"
       token: "${TECHNITIUM_TOKEN}"
       enabled: true
     adguard:
-      url: "http://10.0.0.5"
+      url: "http://localhost:3000"
       username: "${ADGUARD_USER}"
       password: "${ADGUARD_PASS}"
       enabled: true
