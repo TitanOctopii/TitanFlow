@@ -440,6 +440,27 @@ class TelegramGateway:
         )
         await self.engine.audit("telegram_cmd", "/start", user_id=uid, duration_ms=self._elapsed_ms(t0))
 
+    async def _cmd_new(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Clear conversation history for this chat — fresh context."""
+        t0 = time.monotonic()
+        uid = update.effective_user.id
+        if not self._is_authorized(uid):
+            return
+
+        chat_id = str(update.effective_chat.id)
+        # Delete messages for this chat from the DB
+        try:
+            async with self.engine.db.session() as session:
+                from sqlalchemy import text as sql_text
+                await session.exec(sql_text("DELETE FROM messages WHERE chat_id = :cid"), {"cid": chat_id})
+                await session.commit()
+            logger.info("Cleared conversation history for chat %s", chat_id)
+        except Exception:
+            logger.debug("Failed to clear history", exc_info=True)
+
+        await self._reply(update, "🔄 Context cleared. Fresh start, Papa.", t0)
+        await self.engine.audit("telegram_cmd", "/new", user_id=uid, duration_ms=self._elapsed_ms(t0))
+
     async def _cmd_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         t0 = time.monotonic()
         uid = update.effective_user.id
@@ -452,6 +473,8 @@ Core:
   /status — Engine status overview
   /modules — List active modules
   /jobs — Scheduled jobs
+  /new — Clear context, fresh start
+  /reset — Same as /new
 
 Research:
   /research — Research module status
