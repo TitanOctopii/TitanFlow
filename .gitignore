@@ -52,3 +52,6 @@ Thumbs.db
 # Ghost assets (not TitanFlow code)
 backups/
 themes/
+
+# Local experiments
+titanflow/core/mem0_client.py
