@@ -10,7 +10,7 @@ Type=notify
 DynamicUser=yes
 StateDirectory=titanflow/core
 RuntimeDirectory=titanflow-core
-RuntimeDirectoryMode=0750
+RuntimeDirectoryMode=0755
 
 WorkingDirectory=/opt/titanflow
 ExecStart=/opt/titanflow/.venv/bin/python -m titanflow.v03.run
