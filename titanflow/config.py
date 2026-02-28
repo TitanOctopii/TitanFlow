@@ -11,6 +11,8 @@ from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings
 
 
+DEFAULT_CONFIG_PATH = "/opt/titanflow/config/titanflow.yaml"
+
 class LLMCloudConfig(BaseModel):
     provider: str = "anthropic"
     model: str = "claude-sonnet-4-5-20250929"
@@ -162,7 +164,7 @@ def load_config(config_path: str | Path | None = None) -> TitanFlowConfig:
     """Load configuration from YAML file with environment variable resolution."""
     if config_path is None:
         config_path = os.environ.get(
-            "TITANFLOW_CONFIG", "/opt/titanflow/config/titanflow.yaml"
+            "TITANFLOW_CONFIG", DEFAULT_CONFIG_PATH
         )
 
     path = Path(config_path)

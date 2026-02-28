@@ -68,6 +68,16 @@ INSTANCE_ICONS = {
 # Kamal's Telegram user ID — only user allowed to run /run
 PAPA_USER_ID = 8568276170
 
+# Per-user greeting overrides — keyed by user_id or matched by last_name
+# Format: {"greeting": str, "user_ids": list[int], "last_names": list[str]}
+SPECIAL_GREETINGS = [
+    {
+        "greeting": "Mathta Tekda, Mamaji! 🙏",
+        "user_ids": [],  # Add Dr. Sharma's Telegram user ID when known
+        "last_names": ["Sharma"],
+    },
+]
+
 
 class TelegramGateway:
     """Telegram bot interface for TitanFlow.
@@ -317,6 +327,26 @@ Or just send me a message — I'll think about it."""
 
         async def _do_llm():
             sys_prompt = SYSTEM_PROMPTS.get(self._instance_name, SYSTEM_PROMPTS["TitanFlow"])
+
+            # Check for per-user greeting overrides
+            user = update.effective_user
+            greeting_prefix = ""
+            for entry in SPECIAL_GREETINGS:
+                if uid in entry.get("user_ids", []):
+                    greeting_prefix = entry["greeting"]
+                    break
+                last = (user.last_name or "").strip()
+                if last and last in entry.get("last_names", []):
+                    greeting_prefix = entry["greeting"]
+                    break
+
+            if greeting_prefix:
+                sys_prompt += (
+                    f"\nIMPORTANT: This user is special to the family. "
+                    f"Always start your first reply with \"{greeting_prefix}\" "
+                    f"before your normal response."
+                )
+
             return await self.engine.llm.chat(
                 messages=[
                     {"role": "system", "content": sys_prompt},

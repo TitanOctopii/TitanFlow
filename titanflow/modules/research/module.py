@@ -12,6 +12,7 @@ import httpx
 from sqlmodel import select
 
 from titanflow.models import FeedItem, FeedSource, GitHubRelease
+from titanflow.core.http import request_with_retry
 from titanflow.modules.base import BaseModule
 
 logger = logging.getLogger("titanflow.research")
@@ -70,6 +71,8 @@ class ResearchModule(BaseModule):
 
         self.log.info(f"Research module started — fetch interval: {interval}s")
 
+        await self._check_feed_health()
+
         # Do an initial fetch on startup
         await self.fetch_all_feeds()
         await self.fetch_github_releases()
@@ -124,8 +127,7 @@ class ResearchModule(BaseModule):
     async def _fetch_feed(self, source: FeedSource) -> int:
         """Fetch a single feed and store new items. Returns count of new items."""
         try:
-            response = await self._http.get(source.url)
-            response.raise_for_status()
+            response = await request_with_retry(self._http, "GET", source.url)
             feed = feedparser.parse(response.text)
         except Exception as e:
             self.log.warning(f"Failed to fetch feed {source.url}: {e}")
@@ -203,6 +205,49 @@ class ResearchModule(BaseModule):
 
         self.log.info("Loaded feed sources from config")
 
+    async def _check_feed_health(self) -> None:
+        """Check feed URLs on startup and log failures."""
+        import yaml
+        from pathlib import Path
+
+        feeds_path = Path(self.config.config_dir) / "feeds.yaml"
+        if not feeds_path.exists():
+            self.log.warning(f"No feeds config at {feeds_path}")
+            return
+
+        with open(feeds_path) as f:
+            data = yaml.safe_load(f) or {}
+
+        feed_urls: list[str] = []
+        for feeds in data.get("feeds", {}).values():
+            for feed_def in feeds:
+                url = feed_def.get("url")
+                if url:
+                    feed_urls.append(url)
+
+        if not feed_urls:
+            self.log.warning("Feed health check skipped — no feeds found")
+            return
+
+        failures = 0
+        for url in feed_urls:
+            ok = False
+            try:
+                await request_with_retry(self._http, "HEAD", url, attempts=2, timeout=10.0)
+                ok = True
+            except Exception:
+                try:
+                    await request_with_retry(self._http, "GET", url, attempts=2, timeout=10.0)
+                    ok = True
+                except Exception as e:
+                    self.log.warning(f"Feed health check failed for {url}: {e}")
+
+            if not ok:
+                failures += 1
+
+        if failures == 0:
+            self.log.info(f"Feed health check OK ({len(feed_urls)} feed(s))")
+
     # ─── GitHub Release Tracking ──────────────────────────
 
     async def fetch_github_releases(self) -> None:
@@ -227,12 +272,13 @@ class ResearchModule(BaseModule):
         for repo_def in data.get("tracked_repos", []):
             repo = repo_def["repo"]
             try:
-                response = await self._http.get(
+                response = await request_with_retry(
+                    self._http,
+                    "GET",
                     f"https://api.github.com/repos/{repo}/releases",
                     headers=headers,
                     params={"per_page": 5},
                 )
-                response.raise_for_status()
                 releases = response.json()
             except Exception as e:
                 self.log.warning(f"Failed to fetch releases for {repo}: {e}")
@@ -275,6 +321,21 @@ class ResearchModule(BaseModule):
                 source="research",
             )
 
+    @staticmethod
+    def _parse_llm_response(text: str) -> tuple[str, float]:
+        """Parse LLM response into summary + relevance score."""
+        summary = ""
+        relevance = 0.5
+        for line in text.strip().split("\n"):
+            if line.startswith("SUMMARY:"):
+                summary = line[8:].strip()
+            elif line.startswith("RELEVANCE:"):
+                try:
+                    relevance = float(line[10:].strip())
+                except ValueError:
+                    relevance = 0.5
+        return summary, relevance
+
     # ─── LLM Processing ──────────────────────────────────
 
     async def process_unprocessed(self) -> None:
@@ -309,17 +370,7 @@ Content: {item.content[:2000]}
                     max_tokens=500,
                 )
 
-                # Parse response
-                summary = ""
-                relevance = 0.5
-                for line in response.strip().split("\n"):
-                    if line.startswith("SUMMARY:"):
-                        summary = line[8:].strip()
-                    elif line.startswith("RELEVANCE:"):
-                        try:
-                            relevance = float(line[10:].strip())
-                        except ValueError:
-                            relevance = 0.5
+                summary, relevance = self._parse_llm_response(response)
 
                 async with self.db.session() as session:
                     item.summary = summary

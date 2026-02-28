@@ -18,7 +18,7 @@ import uvicorn
 from fastapi import FastAPI
 
 from titanflow.api.routes import router
-from titanflow.config import load_config
+from titanflow.config import load_config, DEFAULT_CONFIG_PATH
 from titanflow.core.engine import TitanFlowEngine
 from titanflow.modules.codeexec.module import CodeExecModule
 from titanflow.modules.newspaper.module import NewspaperModule
@@ -59,7 +59,16 @@ async def lifespan(app: FastAPI):
     config_path = os.environ.get("TITANFLOW_CONFIG")
     config = load_config(config_path)
 
-    logger.info(f"Configuration loaded from: {config_path or 'defaults'}")
+    if config_path:
+        logger.info(f"Configuration loaded from: {config_path}")
+    else:
+        logger.info(f"Configuration loaded from: {DEFAULT_CONFIG_PATH} (or defaults if missing)")
+
+    if not config.debug:
+        if not config.telegram.allowed_users:
+            logger.warning("Security: telegram.allowed_users is empty and debug is False; bot will accept all users.")
+        if not config.api_key:
+            logger.warning("Security: api_key is empty and debug is False; API auth is disabled.")
 
     # Create engine
     _engine = TitanFlowEngine(config)

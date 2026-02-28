@@ -13,6 +13,7 @@ import jwt
 from sqlmodel import select
 
 from titanflow.models import Article, FeedItem, GitHubRelease
+from titanflow.core.http import request_with_retry
 from titanflow.modules.base import BaseModule
 
 logger = logging.getLogger("titanflow.newspaper")
@@ -238,7 +239,11 @@ class NewspaperModule(BaseModule):
                 content += line + "\n"
 
         if not headline or not content.strip():
-            self.log.error("Failed to parse article from LLM response")
+            preview = response.strip().split("\n")[:6]
+            self.log.error(
+                "Failed to parse article from LLM response; preview=%s",
+                " | ".join(preview)[:500],
+            )
             return None
 
         # Ensure unique slug
@@ -270,7 +275,7 @@ class NewspaperModule(BaseModule):
                 await self._mark_items_published(items)
             else:
                 article.status = "failed"
-                self.log.error(f"Failed to publish to Ghost: {headline}")
+                self.log.error("Ghost publish failed for article: %s", headline)
         else:
             article.status = "draft"
 
@@ -334,7 +339,9 @@ class NewspaperModule(BaseModule):
                 }]
             }
 
-            response = await self._http.post(
+            response = await request_with_retry(
+                self._http,
+                "POST",
                 f"{ghost_url}/ghost/api/admin/posts/",
                 headers={
                     "Authorization": f"Ghost {token}",
@@ -342,7 +349,6 @@ class NewspaperModule(BaseModule):
                 },
                 json=post_data,
             )
-            response.raise_for_status()
             result = response.json()
             return result["posts"][0]["id"]
 

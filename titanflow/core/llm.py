@@ -43,25 +43,41 @@ class LLMClient:
         model = model or self.config.default_model
 
         if force_cloud:
-            return await self._cloud_generate(prompt, system=system, temperature=temperature, max_tokens=max_tokens)
+            logger.info(
+                "LLM generate: force_cloud=True; using cloud provider %s",
+                self.config.cloud.provider,
+            )
+            return await self._cloud_generate(
+                prompt, system=system, temperature=temperature, max_tokens=max_tokens
+            )
 
         try:
             return await self._ollama_generate(
                 prompt, system=system, model=model, temperature=temperature
             )
         except Exception as e:
-            logger.warning(f"Ollama generation failed ({e}), trying fallback model...")
+            logger.warning(
+                "Ollama generation failed (%s); trying fallback model %s",
+                e,
+                self.config.fallback_model,
+            )
             try:
                 return await self._ollama_generate(
                     prompt, system=system, model=self.config.fallback_model, temperature=temperature
                 )
             except Exception as e2:
-                logger.warning(f"Fallback model failed ({e2}), escalating to cloud...")
+                logger.warning("Fallback model failed (%s); escalating to cloud", e2)
                 if self.config.cloud.api_key:
+                    logger.info(
+                        "LLM generate: escalating to cloud provider %s",
+                        self.config.cloud.provider,
+                    )
                     return await self._cloud_generate(
                         prompt, system=system, temperature=temperature, max_tokens=max_tokens
                     )
-                raise RuntimeError(f"All LLM backends failed. Local: {e}, Fallback: {e2}") from e2
+                raise RuntimeError(
+                    f"All LLM backends failed. Local: {e}, Fallback: {e2}"
+                ) from e2
 
     async def chat(
         self,
@@ -75,6 +91,10 @@ class LLMClient:
         model = model or self.config.default_model
 
         if force_cloud and self.config.cloud.api_key:
+            logger.info(
+                "LLM chat: force_cloud=True; using cloud provider %s",
+                self.config.cloud.provider,
+            )
             return await self._cloud_chat(messages, temperature=temperature)
 
         try:
@@ -86,8 +106,12 @@ class LLMClient:
                 )
             return response["message"]["content"]
         except Exception as e:
-            logger.warning(f"Ollama chat failed ({e}), escalating to cloud...")
+            logger.warning("Ollama chat failed (%s); escalating to cloud", e)
             if self.config.cloud.api_key:
+                logger.info(
+                    "LLM chat: escalating to cloud provider %s",
+                    self.config.cloud.provider,
+                )
                 return await self._cloud_chat(messages, temperature=temperature)
             raise
 
@@ -129,7 +153,15 @@ class LLMClient:
         temperature: float = 0.7,
         max_tokens: int = 2048,
     ) -> str:
-        """Chat via Anthropic API."""
+        """Chat via cloud API. Dispatches based on provider config."""
+        provider = self.config.cloud.provider
+
+        if provider == "openrouter":
+            return await self._openrouter_chat(
+                messages, system=system, temperature=temperature, max_tokens=max_tokens
+            )
+
+        # Default: Anthropic Messages API
         payload: dict[str, Any] = {
             "model": self.config.cloud.model,
             "max_tokens": max_tokens,
@@ -151,6 +183,39 @@ class LLMClient:
         response.raise_for_status()
         data = response.json()
         return data["content"][0]["text"]
+
+    async def _openrouter_chat(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        system: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 2048,
+    ) -> str:
+        """Chat via OpenRouter (OpenAI-compatible API)."""
+        full_messages = list(messages)
+        if system:
+            full_messages.insert(0, {"role": "system", "content": system})
+
+        payload: dict[str, Any] = {
+            "model": self.config.cloud.model,
+            "max_tokens": max_tokens,
+            "messages": full_messages,
+            "temperature": temperature,
+        }
+
+        response = await self._http.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {self.config.cloud.api_key}",
+                "Content-Type": "application/json",
+                "X-Title": "TitanFlow",
+            },
+            json=payload,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
 
     async def health_check(self) -> dict[str, Any]:
         """Check if Ollama is reachable and list available models."""

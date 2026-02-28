@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlmodel import SQLModel
@@ -37,9 +38,13 @@ class Database:
 
         # Create all tables
         async with self._engine.begin() as conn:
+            await conn.execute(text("PRAGMA journal_mode=WAL"))
+            await conn.execute(text("PRAGMA synchronous=NORMAL"))
+            journal_mode = (await conn.execute(text("PRAGMA journal_mode"))).scalar_one()
+            synchronous = (await conn.execute(text("PRAGMA synchronous"))).scalar_one()
             await conn.run_sync(SQLModel.metadata.create_all)
 
-        logger.info(f"Database initialized at {self.db_path}")
+        logger.info(f"Database initialized at {self.db_path} (journal_mode={journal_mode}, synchronous={synchronous})")
 
     def session(self) -> AsyncSession:
         """Get an async session. Use as async context manager."""
