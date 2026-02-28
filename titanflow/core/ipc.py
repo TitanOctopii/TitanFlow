@@ -18,7 +18,7 @@ from titanflow.core.module_supervisor import ModuleSupervisor
 logger = logging.getLogger("titanflow.ipc")
 
 
-class PermissionError(Exception):
+class IPCPermissionError(Exception):
     def __init__(self, code: str, message: str) -> None:
         self.code = code
         self.message = message
@@ -71,7 +71,7 @@ class IPCServer:
                         module_id = msg.get("module")
                         token = msg.get("token", "")
                         if not module_id or not self.auth.validate_token(module_id, token):
-                            raise PermissionError("PERMISSION_DENIED", "Invalid module token")
+                            raise IPCPermissionError("PERMISSION_DENIED", "Invalid module token")
                         session = self.auth.register_session(module_id)
                         session_id = session.session_id
                         self.supervisor.module_connected(module_id)
@@ -84,11 +84,11 @@ class IPCServer:
                         session_id = msg.get("session_id", "")
                         session = self.auth.get_session(session_id)
                         if not session:
-                            raise PermissionError("UNAUTHORIZED", "Invalid session")
+                            raise IPCPermissionError("UNAUTHORIZED", "Invalid session")
                         module_id = session.module_id
                         self.supervisor.module_heartbeat(module_id)
                         response = await self._dispatch(session, req_id, method, params)
-                except PermissionError as e:
+                except IPCPermissionError as e:
                     response = _response_err(req_id, e.code, e.message)
                 except Exception as e:
                     logger.exception("IPC error")
@@ -151,11 +151,11 @@ class IPCServer:
         if method == "llm.generate":
             llm_perm = perms.get("llm", {})
             if not llm_perm.get("enabled"):
-                raise PermissionError("PERMISSION_DENIED", "LLM not permitted")
+                raise IPCPermissionError("PERMISSION_DENIED", "LLM not permitted")
             model = params.get("model")
             allowed_models = llm_perm.get("models", [])
             if model and allowed_models and model not in allowed_models:
-                raise PermissionError("PERMISSION_DENIED", "Model not allowed")
+                raise IPCPermissionError("PERMISSION_DENIED", "Model not allowed")
             priority_name = llm_perm.get("priority", "module")
             priority = {
                 "chat": Priority.CHAT,
@@ -173,11 +173,11 @@ class IPCServer:
         if method.startswith("db."):
             db_perm = perms.get("database", {})
             if not db_perm.get("enabled"):
-                raise PermissionError("PERMISSION_DENIED", "DB not permitted")
+                raise IPCPermissionError("PERMISSION_DENIED", "DB not permitted")
             table = params.get("table")
             table_perms = {t["name"]: t["access"] for t in db_perm.get("tables", [])}
             if table not in table_perms:
-                raise PermissionError("PERMISSION_DENIED", "Table not allowed")
+                raise IPCPermissionError("PERMISSION_DENIED", "Table not allowed")
 
             if method == "db.query":
                 sql = params.get("query", "")
@@ -185,26 +185,26 @@ class IPCServer:
                 return _response_ok(req_id, {"rows": rows})
             if method == "db.insert":
                 if table_perms[table] != "readwrite":
-                    raise PermissionError("PERMISSION_DENIED", "Insert not allowed")
+                    raise IPCPermissionError("PERMISSION_DENIED", "Insert not allowed")
                 row_id = await self.db.insert(table, params.get("data", {}))
                 return _response_ok(req_id, {"row_id": row_id})
             if method == "db.update":
                 if table_perms[table] != "readwrite":
-                    raise PermissionError("PERMISSION_DENIED", "Update not allowed")
+                    raise IPCPermissionError("PERMISSION_DENIED", "Update not allowed")
                 count = await self.db.update(table, params.get("data", {}), params.get("where", "1=0"), params.get("params", []))
                 return _response_ok(req_id, {"updated": count})
 
         if method == "http.request":
             http_perm = perms.get("http_outbound", {})
             if not http_perm.get("enabled"):
-                raise PermissionError("PERMISSION_DENIED", "HTTP not permitted")
+                raise IPCPermissionError("PERMISSION_DENIED", "HTTP not permitted")
             url = params.get("url", "")
             allowed = http_perm.get("allowed_domains", [])
             if not self.http_proxy.validate_domain(url, allowed):
-                raise PermissionError("PERMISSION_DENIED", "Domain not allowed")
+                raise IPCPermissionError("PERMISSION_DENIED", "Domain not allowed")
             limit = http_perm.get("max_requests_per_minute", 60)
             if not self._check_http_rate(module_id, limit):
-                raise PermissionError("RATE_LIMITED", "HTTP rate limit exceeded")
+                raise IPCPermissionError("RATE_LIMITED", "HTTP rate limit exceeded")
             result = await self.http_proxy.request(url, params.get("method", "GET"), params.get("headers", {}), params.get("body"))
             return _response_ok(req_id, result)
 

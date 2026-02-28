@@ -29,6 +29,8 @@ data/
 # Secrets & config with real values
 .env
 *.env.local
+*.token
+secrets/
 config/titanflow.yaml
 config/titanflow-ollie.yaml
 
