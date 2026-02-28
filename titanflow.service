@@ -1,0 +1,35 @@
+[Unit]
+Description=TitanFlow Orchestration Engine
+After=network.target ollama.service
+Wants=ollama.service
+
+[Service]
+Type=exec
+User=kamal
+Group=kamal
+WorkingDirectory=/opt/titanflow
+ExecStart=/opt/titanflow/.venv/bin/python -m titanflow.main
+Restart=always
+RestartSec=5
+
+# Configuration
+Environment="TITANFLOW_CONFIG=/opt/titanflow/config/titanflow.yaml"
+
+# Secrets — uncomment and fill, or use EnvironmentFile
+# Environment="TELEGRAM_BOT_TOKEN=your-token"
+# Environment="GHOST_ADMIN_KEY_FLOW=id:secret"
+# Environment="GHOST_ADMIN_KEY_ARRAY=id:secret"
+# Environment="GITHUB_TOKEN=ghp_xxx"
+# Environment="HASS_TOKEN=your-token"
+# Environment="ANTHROPIC_API_KEY=sk-xxx"
+
+# Or load from a secrets file:
+# EnvironmentFile=/opt/titanflow/.env
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/data/titanflow /opt/titanflow
+
+[Install]
+WantedBy=multi-user.target

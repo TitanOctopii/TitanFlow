@@ -1,0 +1,88 @@
+# TitanFlow Configuration — Sarge (10.0.0.33)
+# Copy to titanflow.yaml and fill in secrets, or set env vars
+
+titanflow:
+  name: "TitanFlow"
+  host: "127.0.0.1"
+  api_key: "${TITANFLOW_API_KEY}"
+  port: 8800
+  debug: false
+
+  llm:
+    provider: "ollama"
+    base_url: "http://localhost:11434"
+    default_model: "flow:24b"
+    fallback_model: "qwen3-coder-next"
+    cloud:
+      provider: "anthropic"
+      model: "claude-sonnet-4-5-20250929"
+      api_key: "${ANTHROPIC_API_KEY}"
+      escalation_threshold: 0.7
+
+  telegram:
+    bot_token: "${TELEGRAM_BOT_TOKEN}"
+    allowed_users:
+      - 8568276170  # Kamal
+
+  integrations:
+    home_assistant:
+      url: "http://10.0.0.100:8123"
+      token: "${HASS_TOKEN}"
+      enabled: true
+    opnsense:
+      url: "https://10.0.0.1"
+      key: "${OPNSENSE_KEY}"
+      secret: "${OPNSENSE_SECRET}"
+      enabled: true
+    ghost:
+      titanarray:
+        url: "https://titanarray.net"
+        admin_key: "${GHOST_ADMIN_KEY_ARRAY}"
+        enabled: true
+      titanflow:
+        url: "https://titanflow.space"
+        admin_key: "${GHOST_ADMIN_KEY_FLOW}"
+        enabled: true
+    github:
+      token: "${GITHUB_TOKEN}"
+      enabled: true
+    technitium:
+      url: "http://10.0.0.3:5380"
+      token: "${TECHNITIUM_TOKEN}"
+      enabled: true
+    adguard:
+      url: "http://10.0.0.5"
+      username: "${ADGUARD_USER}"
+      password: "${ADGUARD_PASS}"
+      enabled: true
+
+  database:
+    path: "/data/titanflow/titanflow.db"
+
+  modules:
+    security:
+      enabled: true
+      alert_cooldown: 3600
+      poll_interval: 300
+    home:
+      enabled: true
+    automation:
+      enabled: true
+    webpub:
+      enabled: true
+    research:
+      enabled: true
+      fetch_interval: 7200
+      max_items_per_feed: 50
+      processing_batch_size: 50
+    newspaper:
+      enabled: true
+      site: "titanflow.space"
+      auto_publish: true
+      morning_briefing: "06:00"
+      evening_digest: "18:00"
+      weekly_review: "sunday 08:00"
+    codeexec:
+      enabled: true
+      timeout: 30
+      max_output: 4096

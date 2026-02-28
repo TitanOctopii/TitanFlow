@@ -1,0 +1,54 @@
+# TitanFlow Research — RSS/Atom Feed Sources
+# These feeds are checked every 2 hours for new content
+
+feeds:
+  llm_releases:
+    - url: "https://huggingface.co/blog/feed.xml"
+      category: "models"
+      name: "Hugging Face Blog"
+    - url: "https://openai.com/news/rss.xml"
+      category: "industry"
+      name: "OpenAI Blog"
+    # NOTE: Anthropic has no public RSS feed as of 2026-02
+    - url: "https://ollama.com/blog/rss.xml"
+      category: "local_inference"
+      name: "Ollama Blog"
+    - url: "https://blog.google/innovation-and-ai/technology/ai/rss/"
+      category: "industry"
+      name: "Google AI Blog"
+    - url: "https://engineering.fb.com/category/ml-applications/feed/"
+      category: "industry"
+      name: "Meta Engineering (ML)"
+
+  research:
+    - url: "http://arxiv.org/rss/cs.AI"
+      category: "research"
+      name: "arXiv cs.AI"
+    - url: "http://arxiv.org/rss/cs.CL"
+      category: "research"
+      name: "arXiv cs.CL (NLP)"
+    - url: "http://arxiv.org/rss/cs.LG"
+      category: "research"
+      name: "arXiv cs.LG (Machine Learning)"
+
+  infrastructure:
+    - url: "https://github.com/ollama/ollama/releases.atom"
+      category: "tools"
+      name: "Ollama Releases"
+    - url: "https://github.com/ggml-org/llama.cpp/releases.atom"
+      category: "infrastructure"
+      name: "llama.cpp Releases"
+    - url: "https://github.com/vllm-project/vllm/releases.atom"
+      category: "infrastructure"
+      name: "vLLM Releases"
+    - url: "https://github.com/huggingface/transformers/releases.atom"
+      category: "tools"
+      name: "Transformers Releases"
+
+  community:
+    - url: "https://simonwillison.net/atom/everything/"
+      category: "community"
+      name: "Simon Willison"
+    - url: "https://lilianweng.github.io/index.xml"
+      category: "research"
+      name: "Lilian Weng (OpenAI)"

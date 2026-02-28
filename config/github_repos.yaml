@@ -1,0 +1,41 @@
+# TitanFlow Research — GitHub Repository Tracking
+# Monitors releases and activity on key AI/LLM repos
+
+tracked_repos:
+  # Core inference
+  - repo: "ollama/ollama"
+    track: ["releases", "issues"]
+  - repo: "ggml-org/llama.cpp"
+    track: ["releases"]
+  - repo: "vllm-project/vllm"
+    track: ["releases"]
+  - repo: "mozilla-ai/llamafile"
+    track: ["releases"]
+
+  # Major model families
+  - repo: "meta-llama/llama-models"
+    track: ["releases"]
+  - repo: "QwenLM/Qwen2.5"
+    track: ["releases"]
+  - repo: "deepseek-ai/DeepSeek-V3"
+    track: ["releases"]
+  - repo: "google/gemma_pytorch"
+    track: ["releases"]
+  - repo: "mistralai/mistral-inference"
+    track: ["releases"]
+
+  # Tools & frameworks
+  - repo: "huggingface/transformers"
+    track: ["releases"]
+  - repo: "langchain-ai/langchain"
+    track: ["releases"]
+  - repo: "run-llama/llama_index"
+    track: ["releases"]
+
+  # Homelab relevant
+  - repo: "open-webui/open-webui"
+    track: ["releases"]
+  - repo: "TechnitiumSoftware/DnsServer"
+    track: ["releases"]
+  - repo: "AdguardTeam/AdGuardHome"
+    track: ["releases"]

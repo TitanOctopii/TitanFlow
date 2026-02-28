@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Data & databases
+*.db
+*.db-shm
+*.db-wal
+data/
+
+# Secrets & config with real values
+.env
+*.env.local
+config/titanflow.yaml
+config/titanflow-ollie.yaml
+
+# Keep templates
+!config/titanflow.yaml.template
+!config/titanflow-ollie.yaml.template
+
+# Logs
+*.log
+*.log.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude
+.claude/

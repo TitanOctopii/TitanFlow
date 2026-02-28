@@ -1,0 +1,64 @@
+# TitanFlow Configuration — Ollie (MBA / 10.0.0.154)
+# Copy to titanflow-ollie.yaml and fill in secrets, or set env vars
+
+titanflow:
+  name: "TitanFlow-Ollie"
+  host: "0.0.0.0"
+  port: 8800
+  debug: false
+
+  llm:
+    provider: "ollama"
+    base_url: "http://localhost:11434"
+    default_model: "ollie-flow:latest"
+    fallback_model: "qwen3:14b"
+    cloud:
+      provider: "anthropic"
+      model: "claude-sonnet-4-5-20250929"
+      api_key: "${ANTHROPIC_API_KEY}"
+      escalation_threshold: 0.7
+
+  telegram:
+    bot_token: "${TELEGRAM_BOT_TOKEN_OLLIE}"
+    allowed_users:
+      - 8568276170  # Kamal
+
+  integrations:
+    home_assistant:
+      url: "http://10.0.0.100:8123"
+      token: "${HASS_TOKEN}"
+      enabled: false
+    opnsense:
+      enabled: false
+    ghost:
+      titanarray:
+        enabled: false
+      titanflow:
+        enabled: false
+    github:
+      token: "${GITHUB_TOKEN}"
+      enabled: true
+    technitium:
+      enabled: false
+    adguard:
+      enabled: false
+
+  database:
+    path: "/Users/kamaldatta/Projects/TitanFlow/data/titanflow-ollie.db"
+
+  modules:
+    security:
+      enabled: false
+    home:
+      enabled: false
+    automation:
+      enabled: false
+    webpub:
+      enabled: false
+    research:
+      enabled: true
+      fetch_interval: 7200
+      max_items_per_feed: 50
+      processing_batch_size: 5
+    newspaper:
+      enabled: false
