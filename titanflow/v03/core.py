@@ -18,6 +18,7 @@ from titanflow.v03.cache_manager import CacheManager
 from titanflow.v03.llm_broker import LLMBroker, LLMRequest
 from titanflow.v03.ipc_transport import IPCTransport
 from titanflow.v03.module_dispatch import ModuleDispatcher
+from titanflow.v03.ipc_inbound_loop import IPCInboundLoop
 
 logger = logging.getLogger("titanflow.v03.core")
 
@@ -41,6 +42,7 @@ class Core:
         core_socket = config.core_socket if hasattr(config, "core_socket") else "/run/titanflow/core.sock"
         self._ipc_transport = IPCTransport(core_socket, self._ipc)
         self._dispatcher = ModuleDispatcher(self._ipc, core_socket)
+        self._inbound_loop = IPCInboundLoop(ipc=self._ipc, handler=self._handle_inbound)
         # LLM broker wiring placeholder: llm_stream_fn injected by caller later
         self._llm: LLMBroker | None = None
         self._cache: CacheManager | None = None
@@ -60,6 +62,7 @@ class Core:
         self._scheduler.every(self._config.wal_truncate_every_s, self._db.checkpoint_truncate)
         self._scheduler.every(3600, self._evict_cache)
         self._scheduler.every(3600, self._sessions.cleanup_sessions)
+        await self._inbound_loop.start("core")
         await self._dispatcher.start("core")
         await self._watchdog.start()
         self._watchdog.notify_ready()
@@ -68,6 +71,7 @@ class Core:
     async def stop(self) -> None:
         await self._watchdog.stop()
         await self._dispatcher.stop()
+        await self._inbound_loop.stop()
         await self._ipc_transport.stop()
         await self._telemetry.stop()
         await self._scheduler.stop()
@@ -85,6 +89,10 @@ class Core:
 
     async def _health_check(self) -> bool:
         return self._db.is_running
+
+    async def _handle_inbound(self, envelope) -> None:
+        # Placeholder handler; real routing added in Phase 3 wiring.
+        await self._db.increment_counter(f"inbound_seen.module={envelope.module_id}")
 
     @property
     def ipc(self) -> IPCServer:
