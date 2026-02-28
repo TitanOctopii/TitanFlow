@@ -50,7 +50,7 @@ async def test_outbound_ttl_drop(tmp_path):
         payload={},
     )
 
-    await ipc.accept_inbound(env)
+    await ipc.send_outbound(env)
 
     task = asyncio.create_task(loop.start("core"))
     await asyncio.sleep(0.1)

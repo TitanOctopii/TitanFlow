@@ -42,6 +42,10 @@ class CoreConfig:
     telemetry_socket: str = "/run/titanflow/telemetry.sock"
     core_socket: str = "/run/titanflow/core.sock"
 
+    # Gateway
+    gateway_host: str = "0.0.0.0"
+    gateway_port: int = 18888
+
 
 def _get_env(name: str, default: str) -> str:
     return os.environ.get(name, default)
@@ -107,4 +111,6 @@ def load_config() -> CoreConfig:
         core_socket=_get_env(
             "TITANFLOW_CORE_SOCKET", "/run/titanflow/core.sock"
         ),
+        gateway_host=_get_env("TITANFLOW_GATEWAY_HOST", "0.0.0.0"),
+        gateway_port=_get_int("TITANFLOW_GATEWAY_PORT", 18888),
     )

@@ -102,3 +102,32 @@ This log captures all work completed so far for the TitanFlow v0.3 microkernel s
   - Watchdog lag skip
   - WAL pressure checkpoint trigger
   - DLQ inserts for TTL and max preemptions
+
+## Updates After Acceptance Pass
+**IPC routing updates**
+- Added `next_inbound_any` / `next_outbound_any` for core-wide queues.
+- `IPCInboundLoop` now supports consuming from all modules (module_id optional).
+- `IPCOutboundLoop` now drains outbound queues (not inbound) with TTL enforcement.
+- `ModuleDispatcher` now pulls from outbound queues and resolves module socket path.
+
+**Core wiring**
+- Core now starts inbound loop without module scoping.
+- LLM broker is created when an `llm_stream_fn` is provided.
+- `llm.request` routed to broker with async task + outbound response (`llm.response` / `llm.error`).
+- `sessions.create` handled in core inbound with metrics increment.
+
+**Gateway**
+- Added `gateway_http.py` with `/session`, `/rpc`, `/health`.
+- Added `gateway_runner.py` entrypoint.
+- Added systemd unit: `deploy/systemd/titanflow-v03-gateway.service`.
+- Updated `deploy/README-v03.md` to include gateway service steps.
+
+**Run wiring**
+- `titanflow/v03/run.py` now injects LLM stream using `LLMClient`.
+
+**Tests**
+- `tests/test_v03_acceptance.py` updated to exercise outbound queue path.
+
+**Test run note**
+- Attempted: `python3 -m pytest tests/test_v03_acceptance.py tests/test_v03_ipc.py tests/test_v03_llm.py tests/test_v03_wal.py tests/test_v03_watchdog.py`
+- Result: `pytest` not installed in this environment.

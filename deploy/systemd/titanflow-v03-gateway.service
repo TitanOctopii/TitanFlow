@@ -1,0 +1,28 @@
+[Unit]
+Description=TitanFlow v0.3 Gateway
+After=network-online.target titanflow-v03.service
+Requires=titanflow-v03.service
+
+[Service]
+Type=simple
+DynamicUser=yes
+RuntimeDirectory=titanflow-gateway
+RuntimeDirectoryMode=0750
+WorkingDirectory=/opt/titanflow
+ExecStart=/opt/titanflow/.venv/bin/python -m titanflow.v03.gateway_runner
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

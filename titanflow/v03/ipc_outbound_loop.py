@@ -6,7 +6,7 @@ import asyncio
 import json
 from typing import Callable
 
-from titanflow.v03.ipc_server import IPCEnvelope, IPCServer
+from titanflow.v03.ipc_server import IPCEnvelope, IPCServer, IPCValidationError
 from titanflow.v03.kernel_clock import KernelClock
 
 
@@ -40,11 +40,8 @@ class IPCOutboundLoop:
 
     async def _loop(self, module_id: str) -> None:
         while True:
-            envelope = await self._ipc.next_inbound(module_id)
-            ttl = self.TTL_BY_PRIORITY.get(envelope.priority, 30.0)
-            age = self._clock.now() - envelope.created_monotonic
-            if age > ttl:
-                await self._ipc._drop(envelope, reason="ttl_expired", queue_name="outbound")
-                await self._ipc._db.increment_counter(f"ttl_drop.module={module_id}")
+            try:
+                envelope = await self._ipc.next_outbound(module_id)
+            except IPCValidationError:
                 continue
             await self._sender(envelope)

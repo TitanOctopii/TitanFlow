@@ -12,3 +12,7 @@ def new_trace_id() -> str:
         return str(ulid.new())
     except Exception:
         return str(uuid.uuid4())
+
+
+def new_session_id() -> str:
+    return new_trace_id()

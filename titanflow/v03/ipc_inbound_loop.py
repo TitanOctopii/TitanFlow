@@ -17,11 +17,13 @@ class IPCInboundLoop:
     ) -> None:
         self._ipc = ipc
         self._handler = handler
+        self._module_id: str | None = None
         self._task: asyncio.Task | None = None
 
-    async def start(self, module_id: str) -> None:
+    async def start(self, module_id: str | None = None) -> None:
         if self._task is None:
-            self._task = asyncio.create_task(self._loop(module_id))
+            self._module_id = module_id
+            self._task = asyncio.create_task(self._loop())
 
     async def stop(self) -> None:
         if self._task:
@@ -32,7 +34,10 @@ class IPCInboundLoop:
                 pass
             self._task = None
 
-    async def _loop(self, module_id: str) -> None:
+    async def _loop(self) -> None:
         while True:
-            envelope = await self._ipc.next_inbound(module_id)
+            if self._module_id is None:
+                envelope = await self._ipc.next_inbound_any()
+            else:
+                envelope = await self._ipc.next_inbound(self._module_id)
             await self._handler(envelope)

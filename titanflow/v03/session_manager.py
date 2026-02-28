@@ -31,6 +31,20 @@ class SessionManager:
             method="sessions.validate",
         )
 
+    async def create_session(self, session_id: str, actor_id: str, metadata: dict[str, Any] | None = None) -> None:
+        def _run(conn):
+            conn.execute(
+                "INSERT OR REPLACE INTO sessions (session_id, actor_id, metadata) VALUES (?, ?, ?)",
+                (session_id, actor_id, json.dumps(metadata or {})),
+            )
+
+        await self._db.run(
+            _run,
+            trace_id="SYSTEM",
+            module_id="core",
+            method="sessions.create",
+        )
+
     async def touch_session(self, session_id: str, actor_id: str, metadata: dict[str, Any] | None = None) -> None:
         def _run(conn):
             conn.execute(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 from dataclasses import dataclass
 from typing import Any
 
@@ -113,6 +114,86 @@ class IPCServer:
             raise IPCValidationError("TTL expired")
         return envelope
 
+    async def next_outbound(self, module_id: str) -> IPCEnvelope:
+        queues = self._modules[module_id]
+        envelope: IPCEnvelope = await queues.outbound.get()
+        ttl = self.TTL_BY_PRIORITY.get(envelope.priority, 30.0)
+        age = self._clock.now() - envelope.created_monotonic
+        if age > ttl:
+            await self._drop(envelope, reason="ttl_expired", queue_name="outbound")
+            await self._db.increment_counter(f"ttl_drop.module={module_id}")
+            raise IPCValidationError("TTL expired")
+        return envelope
+
+    async def next_inbound_any(self) -> IPCEnvelope:
+        while True:
+            if not self._modules:
+                await asyncio.sleep(0.05)
+                continue
+
+            tasks = {}
+            for module_id, queues in self._modules.items():
+                tasks[asyncio.create_task(queues.inbound.get())] = module_id
+
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in pending:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+
+            done_list = list(done)
+            task = done_list[0]
+            # Put back any extra dequeued envelopes to avoid loss.
+            for extra in done_list[1:]:
+                extra_module = tasks[extra]
+                extra_env = extra.result()
+                with contextlib.suppress(asyncio.QueueFull):
+                    self._modules[extra_module].inbound.put_nowait(extra_env)
+
+            module_id = tasks[task]
+            envelope: IPCEnvelope = task.result()
+            ttl = self.TTL_BY_PRIORITY.get(envelope.priority, 30.0)
+            age = self._clock.now() - envelope.created_monotonic
+            if age > ttl:
+                await self._drop(envelope, reason="ttl_expired", queue_name="inbound")
+                await self._db.increment_counter(f"ttl_drop.module={module_id}")
+                continue
+            return envelope
+
+    async def next_outbound_any(self) -> IPCEnvelope:
+        while True:
+            if not self._modules:
+                await asyncio.sleep(0.05)
+                continue
+
+            tasks = {}
+            for module_id, queues in self._modules.items():
+                tasks[asyncio.create_task(queues.outbound.get())] = module_id
+
+            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in pending:
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+
+            done_list = list(done)
+            task = done_list[0]
+            for extra in done_list[1:]:
+                extra_module = tasks[extra]
+                extra_env = extra.result()
+                with contextlib.suppress(asyncio.QueueFull):
+                    self._modules[extra_module].outbound.put_nowait(extra_env)
+
+            module_id = tasks[task]
+            envelope: IPCEnvelope = task.result()
+            ttl = self.TTL_BY_PRIORITY.get(envelope.priority, 30.0)
+            age = self._clock.now() - envelope.created_monotonic
+            if age > ttl:
+                await self._drop(envelope, reason="ttl_expired", queue_name="outbound")
+                await self._db.increment_counter(f"ttl_drop.module={module_id}")
+                continue
+            return envelope
+
     async def send_outbound(self, envelope: IPCEnvelope) -> None:
         queues = self._modules.get(envelope.module_id)
         if not queues:
@@ -145,6 +226,8 @@ class IPCServer:
             raise IPCValidationError("actor not allowed")
 
     async def validate_session(self, envelope: IPCEnvelope) -> None:
+        if envelope.method == "sessions.create":
+            return
         valid = await self._sessions.validate_session(envelope.session_id, envelope.actor_id)
         if not valid:
             raise IPCValidationError("invalid session")
