@@ -131,3 +131,18 @@ This log captures all work completed so far for the TitanFlow v0.3 microkernel s
 **Test run note**
 - Attempted: `python3 -m pytest tests/test_v03_acceptance.py tests/test_v03_ipc.py tests/test_v03_llm.py tests/test_v03_wal.py tests/test_v03_watchdog.py`
 - Result: `pytest` not installed in this environment.
+
+## Deployment Fixes (Sarge)
+**systemd v0.3 service adjustments**
+- DB path moved to `/var/lib/titanflow/core/titanflow.db` to work with `DynamicUser` sandbox.
+- `ReadWritePaths` updated to `/var/lib/titanflow/core /run/titanflow-core`.
+- `TITANFLOW_TELEMETRY_SOCKET` + `TITANFLOW_CORE_SOCKET` set to `/run/titanflow-core/*.sock`.
+
+**telemetry socket alignment**
+- Telemetry socket unit now listens on `/run/titanflow-core/telemetry.sock`.
+- Telemetry HTTP runner updated to query `/run/titanflow-core/telemetry.sock`.
+- Telemetry server now creates parent dir and chmods socket `0666` for cross-service access.
+
+**Sarge runtime fixes**
+- Rebuilt `/opt/titanflow/.venv` on Sarge with Linux Python 3.14 + pip install.
+- v0.3 core confirmed `active (running)` after service tweaks.
