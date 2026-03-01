@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-03-01T17:48:59Z",
+    "generated_at": "2026-03-01T19:25:31Z",
     "source": "aggregated:live"
   },
   "nodes": [
@@ -7281,6 +7281,21 @@
       "type": "serves_ip",
       "details": "dns_phase1_lan_macvlan",
       "source": "docker-inspect:2026-03-01T17:51:10Z"
+    }
+  ],
+  "incidents": [
+    {
+      "id": "INC-2026-03-01-moltis-restart",
+      "node": "TitanSarge",
+      "service": "moltis",
+      "status": "resolved",
+      "summary": "Moltis container exited with code 255 and was restarted",
+      "resolved_at": "2026-03-01T19:25:31Z",
+      "source": "operator:manual:2026-03-01T19:25:31Z",
+      "evidence": [
+        "docker logs moltis --since 72h (WARN: docker.sock permission denied; WARN: WebAuthn rp_id invalid)",
+        "docker start moltis"
+      ]
     }
   ]
 }
