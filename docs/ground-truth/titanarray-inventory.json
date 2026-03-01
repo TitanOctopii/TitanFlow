@@ -1,0 +1,258 @@
+{
+  "_meta": {
+    "version": "1.0.0",
+    "generated_by": "CC",
+    "generated_at": "2026-03-01T12:00:00Z",
+    "description": "TitanArray ground truth node inventory and service map. Source: Shadow inventory, build log 2026-02-28, health script, live configs. CX verification pending for Shark + Stream.",
+    "verification_status": {
+      "TitanSarge": "verified_shadow_inventory",
+      "TitanShadow": "verified_shadow_inventory",
+      "TitanShark": "pending_cx_verification",
+      "TitanStrike": "pending_cx_verification",
+      "TitanStream": "pending_cx_verification",
+      "TitanMBA": "verified_shadow_inventory",
+      "TitanShare": "pending_cx_verification"
+    }
+  },
+
+  "nodes": {
+    "TitanSarge": {
+      "ip": "10.0.0.33",
+      "hostname": "TitanSarge",
+      "hardware": {
+        "cpu": "AMD Threadripper 3960X",
+        "cores": 24,
+        "threads": 48,
+        "ram_gb": 128,
+        "gpu": null,
+        "notes": "Primary inference node — CPU-only, no GPU"
+      },
+      "os": "Linux",
+      "init_system": "systemd",
+      "roles": ["ollama_inference", "titanflow_primary"],
+      "services": {
+        "ollama": {
+          "port": 11434,
+          "url": "http://10.0.0.33:11434",
+          "status": "active",
+          "models_verified": ["flow:24b"],
+          "models_configured": ["flow:24b", "qwen3-coder-next", "cogito:14b", "nomic-embed-text"],
+          "notes": "Primary inference server. flow:24b is the default model."
+        },
+        "titanflow_flow": {
+          "port": 8800,
+          "url": "http://10.0.0.33:8800",
+          "status": "active",
+          "version": "0.2.1",
+          "config_file": "/opt/titanflow/config/titanflow.yaml",
+          "database": "/data/titanflow/titanflow.db",
+          "instance_name": "TitanFlow",
+          "unit": "titanflow.service"
+        }
+      },
+      "verified_at": "2026-02-28"
+    },
+
+    "TitanShadow": {
+      "ip": "10.0.0.32",
+      "hostname": "TitanShadow",
+      "hardware": {
+        "cpu": "Intel Core i9-14900K",
+        "ram_gb": null,
+        "gpu": "NVIDIA RTX 4070",
+        "gpu_vram_gb": 12,
+        "notes": "Vector DB host + secondary compute"
+      },
+      "os": "Linux",
+      "init_system": "systemd",
+      "roles": ["vector_db", "docker_host"],
+      "services": {
+        "qdrant": {
+          "port": 6333,
+          "url": "http://10.0.0.32:6333",
+          "status": "running",
+          "container": "qdrant",
+          "collections": {
+            "titanflow_memories": {
+              "vector_size": 768,
+              "distance": "Cosine",
+              "embed_model": "nomic-embed-text",
+              "used_by": "Flow (TitanFlow)"
+            },
+            "openclaw_memories": {
+              "vector_size": 768,
+              "distance": "Cosine",
+              "embed_model": "nomic-embed-text",
+              "used_by": "Ollie (TitanFlow-Ollie)"
+            }
+          }
+        },
+        "docker": {
+          "status": "running",
+          "containers_expected": ["qdrant", "milvus", "glance", "vikunja"],
+          "notes": "Health script checks for these four containers"
+        }
+      },
+      "verified_at": "2026-02-28"
+    },
+
+    "TitanShark": {
+      "ip": null,
+      "hostname": "TitanShark",
+      "hardware": {
+        "cpu": "AMD Ryzen 9 5950X",
+        "cores": 16,
+        "threads": 32,
+        "ram_gb": null,
+        "gpu": "NVIDIA RTX 3060 Ti",
+        "gpu_vram_gb": 8
+      },
+      "os": "Linux",
+      "init_system": "systemd",
+      "roles": ["ollama_inference"],
+      "services": {
+        "ollama": {
+          "port": 11434,
+          "url": null,
+          "status": "PENDING_CX_VERIFICATION",
+          "models_verified": [],
+          "notes": "CX is running live inventory. IP and loaded models TBD."
+        }
+      },
+      "verified_at": null
+    },
+
+    "TitanStrike": {
+      "ip": "10.0.0.1",
+      "hostname": "TitanStrike",
+      "hardware": {
+        "notes": "OPNsense firewall appliance"
+      },
+      "os": "FreeBSD (OPNsense)",
+      "roles": ["firewall", "router", "vpn"],
+      "services": {
+        "opnsense": {
+          "port": 443,
+          "url": "https://10.0.0.1",
+          "status": "PENDING_CX_VERIFICATION",
+          "notes": "Config default was https://10.0.0.1, now https://localhost in code defaults"
+        }
+      },
+      "verified_at": null
+    },
+
+    "TitanStream": {
+      "ip": null,
+      "hostname": "TitanStream",
+      "hardware": {
+        "notes": "Docker host for DNS/ad-blocking/media services"
+      },
+      "os": "Linux",
+      "init_system": "systemd",
+      "roles": ["docker_host", "dns", "adblocking"],
+      "services": {
+        "technitium": {
+          "port": 5380,
+          "url": null,
+          "status": "PENDING_CX_VERIFICATION",
+          "notes": "CX is running inventory. IP TBD. Config default was http://10.0.0.3:5380"
+        },
+        "adguard": {
+          "port": 3000,
+          "url": null,
+          "status": "PENDING_CX_VERIFICATION",
+          "notes": "CX is running inventory. IP TBD. Config default was http://10.0.0.5"
+        },
+        "ollama": {
+          "port": 11434,
+          "url": null,
+          "status": "PENDING_CX_VERIFICATION",
+          "notes": "Health script checks for Ollama on Stream. TBD if active."
+        }
+      },
+      "verified_at": null
+    },
+
+    "TitanMBA": {
+      "ip": "10.0.0.10",
+      "hostname": "TitanMBA",
+      "hardware": {
+        "cpu": "Apple M4",
+        "ram_gb": 32,
+        "gpu": "Apple M4 (unified memory)",
+        "notes": "MacBook Air — Ollie's home"
+      },
+      "os": "macOS",
+      "init_system": "launchd",
+      "roles": ["titanflow_ollie", "development"],
+      "services": {
+        "ollama": {
+          "port": 11434,
+          "url": "http://localhost:11434",
+          "status": "active",
+          "models_configured": ["lfm2:24b", "gemma3:12b-it-qat"],
+          "notes": "Local Ollama for Ollie. Uses Sarge (10.0.0.33:11434) for mem0 embedding/extraction."
+        },
+        "titanflow_ollie": {
+          "port": 8801,
+          "url": "http://10.0.0.10:8801",
+          "status": "active",
+          "version": "0.2.1",
+          "config_file": "config/titanflow-ollie.yaml",
+          "database": "./data/titanflow-ollie.db",
+          "instance_name": "TitanFlow-Ollie",
+          "plist": "com.titanflow.ollie"
+        },
+        "titanpipeline_warroom": {
+          "port": 5173,
+          "url": "http://10.0.0.10:5173",
+          "status": "active"
+        }
+      },
+      "verified_at": "2026-02-28"
+    },
+
+    "TitanShare": {
+      "ip": null,
+      "hostname": "TitanShare",
+      "hardware": {
+        "notes": "Unraid NAS — storage array"
+      },
+      "os": "Unraid",
+      "roles": ["nas", "storage"],
+      "services": {},
+      "verified_at": null
+    }
+  },
+
+  "network": {
+    "subnet": "10.0.0.0/24",
+    "gateway": "10.0.0.1",
+    "dns_primary": null,
+    "dns_secondary": null,
+    "notes": "All TitanArray nodes on same /24 subnet. DNS servers pending CX verification."
+  },
+
+  "external_services": {
+    "ghost_titanarray": {
+      "url": "https://titanarray.net",
+      "purpose": "Ghost CMS — TitanArray blog"
+    },
+    "ghost_titanflow": {
+      "url": "https://titanflow.space",
+      "purpose": "Ghost CMS — TitanFlow blog"
+    },
+    "github": {
+      "org": "kamaldatta76",
+      "repos": ["TitanFlow"],
+      "api": "https://api.github.com"
+    },
+    "anthropic": {
+      "api": "https://api.anthropic.com/v1/messages",
+      "model": "claude-sonnet-4-5-20250929"
+    },
+    "openrouter": {
+      "api": "https://openrouter.ai/api/v1/chat/completions"
+    }
+  }
+}

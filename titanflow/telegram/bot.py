@@ -24,13 +24,16 @@ if TYPE_CHECKING:
     from titanflow.core.engine import TitanFlowEngine
     from titanflow.plugin_manager import PluginManager
 
+from titanflow import __version__
 from titanflow.config import TelegramConfig
 from titanflow.core.llm_broker import Priority
 from titanflow.core.mem0_client import Mem0Client
 
 logger = logging.getLogger("titanflow.telegram")
 
-FOOTER_TPL = "\n\n─────────────────────\n<i>{icon} TF0.1 · {host} · {elapsed}</i>"
+# Version string for footer — derived from single source of truth
+_TF_SHORT_VER = f"TF{'.'.join(__version__.split('.')[:2])}"  # "0.2.1" → "TF0.2"
+FOOTER_TPL = "\n\n─────────────────────\n<i>{icon} " + _TF_SHORT_VER + " · {host} · {elapsed}</i>"
 
 
 def _escape_html(text: str) -> str:
