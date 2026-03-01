@@ -245,7 +245,7 @@ class TitanFlowEngine:
             return " OR ".join(clauses), params
 
         feed_where, feed_params = _build_like_clause(["title", "summary", "content"])
-        summary_where, summary_params = _build_like_clause(["summary"])
+        summary_where, summary_params = _build_like_clause(["rs.summary"])
         article_where, article_params = _build_like_clause(
             ["title", "excerpt", "content_markdown", "content_html"]
         )

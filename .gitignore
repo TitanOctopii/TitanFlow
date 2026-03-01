@@ -53,5 +53,4 @@ Thumbs.db
 backups/
 themes/
 
-# Local experiments
-titanflow/core/mem0_client.py
+# Local experiments (mem0_client.py was un-ignored after hardening — no secrets remain)

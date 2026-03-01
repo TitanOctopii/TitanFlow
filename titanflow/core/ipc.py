@@ -60,6 +60,9 @@ class IPCServer:
                 line = await reader.readline()
                 if not line:
                     break
+                if len(line) > 1_000_000:
+                    logger.warning("Oversized IPC message (%d bytes) from %s — skipping", len(line), peer)
+                    continue
                 msg = json.loads(line.decode())
                 req_id = msg.get("id", "")
                 method = msg.get("method", "")
@@ -215,7 +218,7 @@ class IPCServer:
         if method == "health.pong":
             return _response_ok(req_id, {"ok": True})
 
-        raise PermissionError("PERMISSION_DENIED", "Unknown or forbidden method")
+        raise IPCPermissionError("PERMISSION_DENIED", "Unknown or forbidden method")
 
 
 async def start_ipc_server(socket_path: str, handler: IPCServer) -> asyncio.AbstractServer:

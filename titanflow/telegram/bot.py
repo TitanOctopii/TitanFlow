@@ -47,7 +47,10 @@ GROUNDING_REFUSAL = (
     "I don't have that in my research database yet, Papa. Want me to look into it?"
 )
 
+# Safety cap: never replay more than this many turns regardless of token count
 MAX_CONTEXT_TURNS = 20
+# Estimated token budget for replayed history — older messages are dropped first
+MAX_CONTEXT_TOKENS_EST = 30000
 
 # WHY (demo-critical):
 # 1) Special greeting must be consistent and respectful.
@@ -111,6 +114,8 @@ INSTANCE_ICONS = {
 
 # Papa's Telegram user ID — only user allowed to run /run
 PAPA_USER_ID = int(os.environ.get("PAPA_TELEGRAM_ID", "0"))
+if PAPA_USER_ID == 0:
+    logger.warning("PAPA_TELEGRAM_ID not set — /run command is effectively disabled for all users")
 
 # Per-user greeting overrides — keyed by user_id or matched by last_name
 # Format: {"greeting": str, "user_ids": list[int], "last_names": list[str]}
@@ -317,8 +322,10 @@ def _strip_tool_call_line(text: str) -> str:
     return "\n".join(lines).strip()
 
 
-# Maximum tool invocation rounds per message (prevents infinite loops)
+# Maximum tool invocation rounds per message (prevents infinite loops).
+# This is the upper bound — most messages complete in 1-3 rounds.
 MAX_TOOL_ROUNDS = 25
+MAX_TOOL_LOOP_SECONDS = 120  # Hard wall-clock timeout for the entire tool loop
 MAX_TOOL_RESULT_CHARS = 2000
 
 
@@ -820,6 +827,16 @@ Or just send me a message — I'll think about it."""
         if not history or history[-1].get("content") != user_message:
             history = history + [{"role": "user", "content": user_message}]
 
+        # ── Token-budget truncation: drop oldest messages until under budget ──
+        total_tokens = sum(_estimate_tokens(m.get("content", "")) for m in history)
+        while total_tokens > MAX_CONTEXT_TOKENS_EST and len(history) > 1:
+            dropped = history.pop(0)
+            total_tokens -= _estimate_tokens(dropped.get("content", ""))
+            logger.debug(
+                "Context truncation: dropped oldest message (%s tokens over budget)",
+                total_tokens,
+            )
+
         # ── mem0: recall relevant long-term memories ──────────
         try:
             memories = await self._mem0.recall(user_message)
@@ -943,6 +960,7 @@ Or just send me a message — I'll think about it."""
             # LLM may request tool calls. We execute them and feed results back
             # for up to MAX_TOOL_ROUNDS iterations.
             response = ""
+            tool_loop_t0 = time.monotonic()
             for _round in range(MAX_TOOL_ROUNDS + 1):
                 work = asyncio.create_task(self._llm_chat(messages, priority=Priority.CHAT))
                 typing_task = asyncio.create_task(self._typing_until_done(update.message.chat, work))
@@ -959,6 +977,12 @@ Or just send me a message — I'll think about it."""
 
                 if _round >= MAX_TOOL_ROUNDS:
                     response = "⚠ Tool loop limit reached. Here's what I have so far."
+                    break
+
+                # Wall-clock timeout guard
+                if time.monotonic() - tool_loop_t0 > MAX_TOOL_LOOP_SECONDS:
+                    logger.warning("Tool loop timed out after %ds", MAX_TOOL_LOOP_SECONDS)
+                    response = f"⚠ Tool loop timed out after {MAX_TOOL_LOOP_SECONDS}s. Here's what I have so far."
                     break
 
                 # Execute the tool

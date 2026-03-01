@@ -35,16 +35,40 @@ _DEFAULTS: dict[str, Any] = {
 class PersonalityStore:
     """Thread-safe singleton store for per-instance personality configs."""
 
+    _DEFAULTS = _DEFAULTS  # Expose for external validation (e.g. API routes)
+
     @staticmethod
     def get(instance_name: str) -> dict[str, Any]:
         with _lock:
             return dict(_store.get(instance_name, _DEFAULTS))
 
+    _VALID_PRESETS = {"normal", "kellen", "unhinged", "demo", "work", "pipeline"}
+    _SLIDER_KEYS = {"slider_silly", "slider_chatty", "slider_hyper", "slider_voices"}
+
+    @staticmethod
+    def _clamp(value: int | float, lo: int | float, hi: int | float) -> int | float:
+        return max(lo, min(hi, value))
+
     @staticmethod
     def set(instance_name: str, config: dict[str, Any]) -> None:
         with _lock:
             current = dict(_store.get(instance_name, _DEFAULTS))
-            current.update({k: v for k, v in config.items() if k in _DEFAULTS})
+            filtered = {k: v for k, v in config.items() if k in _DEFAULTS}
+
+            # Clamp slider values to 0-100
+            for key in PersonalityStore._SLIDER_KEYS:
+                if key in filtered:
+                    filtered[key] = int(PersonalityStore._clamp(int(filtered[key]), 0, 100))
+
+            # Clamp temperature to 0.0-2.0
+            if "temperature" in filtered:
+                filtered["temperature"] = float(PersonalityStore._clamp(float(filtered["temperature"]), 0.0, 2.0))
+
+            # Validate preset against known values; fall back to "normal"
+            if "preset" in filtered and filtered["preset"] not in PersonalityStore._VALID_PRESETS:
+                filtered["preset"] = "normal"
+
+            current.update(filtered)
             _store[instance_name] = current
 
     @staticmethod

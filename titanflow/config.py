@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +12,8 @@ import yaml
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings
 
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIG_PATH = "/opt/titanflow/config/titanflow.yaml"
 
@@ -27,10 +31,31 @@ class LLMConfig(BaseModel):
     fallback_model: str = "qwen3-coder-next"
     cloud: LLMCloudConfig = LLMCloudConfig()
 
+    @field_validator("base_url", mode="after")
+    @classmethod
+    def _warn_invalid_base_url(cls, v: str) -> str:
+        if not re.match(r"^https?://", v):
+            logger.warning(
+                "LLM base_url '%s' does not look like a valid HTTP(S) URL",
+                v,
+            )
+        return v
+
 
 class TelegramConfig(BaseModel):
     bot_token: str = ""
     allowed_users: list[int] = Field(default_factory=list)
+
+    @field_validator("bot_token", mode="after")
+    @classmethod
+    def _warn_unresolved_token(cls, v: str) -> str:
+        if v.startswith("${"):
+            logger.warning(
+                "Telegram bot_token appears to be an unresolved env var "
+                "reference: '%s'",
+                v,
+            )
+        return v
 
     @field_validator("allowed_users", mode="before")
     @classmethod
@@ -161,11 +186,36 @@ class TitanFlowConfig(BaseModel):
     modules: ModulesConfig = ModulesConfig()
 
 
+_ENV_VAR_PATTERN = re.compile(r"\$\{([^}]+)\}")
+
+
 def _resolve_env_vars(data: Any) -> Any:
     """Recursively resolve ${ENV_VAR} references in config values."""
-    if isinstance(data, str) and data.startswith("${") and data.endswith("}"):
-        env_key = data[2:-1]
-        return os.environ.get(env_key, "")
+    if isinstance(data, str) and "${" in data:
+        # Full-string env var reference: "${VAR}"
+        if data.startswith("${") and data.endswith("}") and data.count("${") == 1:
+            env_key = data[2:-1]
+            value = os.environ.get(env_key, "")
+            if not value:
+                logger.warning(
+                    "Environment variable '%s' is not set; "
+                    "resolved to empty string",
+                    env_key,
+                )
+            return value
+        # Partial / multiple env var references: "prefix-${VAR}-suffix"
+        def _replace(match: re.Match) -> str:
+            env_key = match.group(1)
+            value = os.environ.get(env_key, "")
+            if not value:
+                logger.warning(
+                    "Environment variable '%s' is not set; "
+                    "resolved to empty string",
+                    env_key,
+                )
+            return value
+
+        return _ENV_VAR_PATTERN.sub(_replace, data)
     elif isinstance(data, dict):
         return {k: _resolve_env_vars(v) for k, v in data.items()}
     elif isinstance(data, list):
@@ -194,4 +244,7 @@ def load_config(config_path: str | Path | None = None) -> TitanFlowConfig:
         return TitanFlowConfig(**resolved)
 
     # No config file — use defaults + env vars
+    logger.warning(
+        "Config file '%s' not found; using built-in defaults", path
+    )
     return TitanFlowConfig()

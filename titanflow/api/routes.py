@@ -79,5 +79,18 @@ async def set_personality(request: Request, engine=Depends(get_engine), _=Depend
         response_length, memory_enabled, plugins }
     """
     body = await request.json()
+
+    # ── Payload validation ────────────────────────────────────────────────
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Payload must be a JSON object")
+    if not body:
+        raise HTTPException(status_code=400, detail="Payload must not be empty")
+    unknown_keys = set(body.keys()) - set(PersonalityStore._DEFAULTS.keys())
+    if unknown_keys:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown personality keys: {sorted(unknown_keys)}",
+        )
+
     PersonalityStore.set(engine.config.name, body)
     return {"status": "ok", "instance": engine.config.name, "applied": body}

@@ -126,6 +126,13 @@ class ResearchModule(ModuleBaseIPC):
             logger.warning("Failed to fetch feed %s: %s", source["url"], e)
             return 0
 
+        if not feed.entries:
+            logger.warning(
+                "No entries in feed %s — response may be an HTML error page, not RSS",
+                source["url"],
+            )
+            return 0
+
         new_count = 0
         for entry in feed.entries[:50]:
             guid = entry.get("id") or entry.get("link") or hashlib.md5(
@@ -185,6 +192,23 @@ class ResearchModule(ModuleBaseIPC):
                 releases = json.loads(response.get("body", "[]"))
             except Exception as e:
                 logger.warning("Failed to fetch releases for %s: %s", repo, e)
+                continue
+
+            if isinstance(releases, dict):
+                if "message" in releases:
+                    logger.warning(
+                        "GitHub API error for %s: %s", repo, releases["message"]
+                    )
+                else:
+                    logger.warning(
+                        "Unexpected dict response for %s releases, skipping", repo
+                    )
+                continue
+            if not isinstance(releases, list):
+                logger.warning(
+                    "Unexpected response type for %s releases: %s, skipping",
+                    repo, type(releases).__name__,
+                )
                 continue
 
             for rel in releases[:5]:
@@ -253,6 +277,8 @@ class ResearchModule(ModuleBaseIPC):
                     relevance = float(line[10:].strip())
                 except ValueError:
                     relevance = 0.5
+        # Clamp relevance score to valid 0.0-1.0 range
+        relevance = max(0.0, min(1.0, relevance))
         return summary, relevance
 
 

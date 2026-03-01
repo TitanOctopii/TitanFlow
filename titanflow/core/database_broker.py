@@ -143,6 +143,21 @@ def _validate_identifier(name: str) -> str:
     return name
 
 
+def _validate_where_clause(where: str) -> str:
+    """Reject WHERE clauses containing SQL injection patterns."""
+    if ";" in where:
+        raise ValueError("WHERE clause must not contain semicolons")
+    _DDL_KEYWORDS = {"DROP", "ALTER", "CREATE", "TRUNCATE", "DELETE", "INSERT"}
+    # Tokenize on non-alphanumeric boundaries and check for DDL keywords
+    tokens = set(re.findall(r"[A-Za-z]+", where.upper()))
+    found = tokens & _DDL_KEYWORDS
+    if found:
+        raise ValueError(
+            f"WHERE clause contains forbidden keyword(s): {', '.join(sorted(found))}"
+        )
+    return where
+
+
 class DatabaseBroker:
     def __init__(self, settings: DatabaseSettings) -> None:
         self.settings = settings
@@ -184,6 +199,8 @@ class DatabaseBroker:
         max_rows: int | None = None,
     ) -> list[dict[str, Any]]:
         _validate_identifier(table)
+        if table.lower() not in sql.lower():
+            raise ValueError(f"SQL query does not reference claimed table '{table}'")
         params = params or []
 
         def _run() -> list[dict[str, Any]]:
@@ -220,6 +237,7 @@ class DatabaseBroker:
         _validate_identifier(table)
         for col in data:
             _validate_identifier(col)
+        _validate_where_clause(where)
         params = params or []
 
         def _run() -> int:
@@ -308,7 +326,7 @@ class DatabaseBroker:
             return " OR ".join(clauses), params
 
         feed_where, feed_params = _build_like_clause(["title", "summary", "content"])
-        summary_where, summary_params = _build_like_clause(["summary"])
+        summary_where, summary_params = _build_like_clause(["rs.summary"])
         article_where, article_params = _build_like_clause(
             ["title", "excerpt", "content_markdown", "content_html"]
         )
