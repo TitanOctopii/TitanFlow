@@ -36,7 +36,10 @@
         "Databases",
         "DNS primary"
       ],
-      "source": "node-inventory:TitanSarge:2026-03-01T17:48:22Z"
+      "source": "node-inventory:TitanSarge:2026-03-01T17:48:22Z",
+      "gpu": "NVIDIA GeForce RTX 5060 Ti, 16 GB VRAM, 590.48.01",
+      "gpu_verified": true,
+      "gpu_active": true
     },
     {
       "name": "TitanShark",
@@ -3643,7 +3646,11 @@
       "model": "flow:24b",
       "size": "745ebd82c12d",
       "modified": "19",
-      "source": "node-inventory:TitanSarge:2026-03-01T17:48:22Z"
+      "source": "node-inventory:TitanSarge:2026-03-01T17:48:22Z",
+      "gpu_layers": 33,
+      "cpu_layers": 15,
+      "gpu_verified": true,
+      "cpu_only": false
     },
     {
       "name": "ollama_model",
