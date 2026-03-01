@@ -17,6 +17,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 
+from titanflow import __version__
 from titanflow.api.routes import router
 from titanflow.config import load_config, DEFAULT_CONFIG_PATH
 from titanflow.core.engine import TitanFlowEngine
@@ -136,7 +137,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="TitanFlow",
     description="Orchestration engine for TitanArray",
-    version="0.1.0",
+    version=__version__,
     lifespan=lifespan,
 )
 
@@ -147,7 +148,7 @@ app.include_router(router)
 async def root():
     return {
         "name": "TitanFlow",
-        "version": "0.1.0",
+        "version": __version__,
         "description": "Orchestration engine for TitanArray",
     }
 
