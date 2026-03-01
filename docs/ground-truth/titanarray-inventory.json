@@ -3,11 +3,11 @@
     "version": "1.0.0",
     "generated_by": "CC",
     "generated_at": "2026-03-01T12:00:00Z",
-    "description": "TitanArray ground truth node inventory and service map. Source: Shadow inventory, build log 2026-02-28, health script, live configs. CX verification pending for Shark + Stream.",
+    "description": "TitanArray ground truth node inventory and service map. Source: Shadow inventory, build log 2026-02-28, health script, live configs, GPU survey 2026-03-01. Shark verified. Stream pending CX.",
     "verification_status": {
-      "TitanSarge": "verified_shadow_inventory",
-      "TitanShadow": "verified_shadow_inventory",
-      "TitanShark": "pending_cx_verification",
+      "TitanSarge": "verified_gpu_survey_2026-03-01",
+      "TitanShadow": "verified_gpu_survey_2026-03-01",
+      "TitanShark": "verified_gpu_survey_2026-03-01",
       "TitanStrike": "pending_cx_verification",
       "TitanStream": "pending_cx_verification",
       "TitanMBA": "verified_shadow_inventory",
@@ -24,8 +24,11 @@
         "cores": 24,
         "threads": 48,
         "ram_gb": 128,
-        "gpu": null,
-        "notes": "Primary inference node — CPU-only, no GPU"
+        "gpu": "NVIDIA GeForce RTX 5060 Ti",
+        "gpu_vram_mb": 16311,
+        "gpu_vram_gb": 16,
+        "gpu_layers": "33/48 on GPU, 15 on CPU",
+        "notes": "Primary inference node — GPU-accelerated. flow:24b splits 33/48 layers to GPU."
       },
       "os": "Linux",
       "init_system": "systemd",
@@ -50,7 +53,7 @@
           "unit": "titanflow.service"
         }
       },
-      "verified_at": "2026-02-28"
+      "verified_at": "2026-03-01"
     },
 
     "TitanShadow": {
@@ -59,9 +62,10 @@
       "hardware": {
         "cpu": "Intel Core i9-14900K",
         "ram_gb": null,
-        "gpu": "NVIDIA RTX 4070",
+        "gpu": "NVIDIA GeForce RTX 4070",
+        "gpu_vram_mb": 12282,
         "gpu_vram_gb": 12,
-        "notes": "Vector DB host + secondary compute"
+        "notes": "Vector DB host + secondary compute. GPU verified via nvidia-smi 2026-03-01."
       },
       "os": "Linux",
       "init_system": "systemd",
@@ -93,19 +97,21 @@
           "notes": "Health script checks for these four containers"
         }
       },
-      "verified_at": "2026-02-28"
+      "verified_at": "2026-03-01"
     },
 
     "TitanShark": {
-      "ip": null,
+      "ip": "10.0.0.31",
       "hostname": "TitanShark",
       "hardware": {
         "cpu": "AMD Ryzen 9 5950X",
         "cores": 16,
         "threads": 32,
         "ram_gb": null,
-        "gpu": "NVIDIA RTX 3060 Ti",
-        "gpu_vram_gb": 8
+        "gpu": "NVIDIA GeForce RTX 3060",
+        "gpu_vram_mb": 12288,
+        "gpu_vram_gb": 12,
+        "notes": "RTX 3060 12GB (not Ti). GPU verified via nvidia-smi 2026-03-01."
       },
       "os": "Linux",
       "init_system": "systemd",
@@ -113,13 +119,13 @@
       "services": {
         "ollama": {
           "port": 11434,
-          "url": null,
-          "status": "PENDING_CX_VERIFICATION",
+          "url": "http://10.0.0.31:11434",
+          "status": "active",
           "models_verified": [],
-          "notes": "CX is running live inventory. IP and loaded models TBD."
+          "notes": "Ollama running, no models loaded at time of survey. GPU idle."
         }
       },
-      "verified_at": null
+      "verified_at": "2026-03-01"
     },
 
     "TitanStrike": {
@@ -243,9 +249,10 @@
       "purpose": "Ghost CMS — TitanFlow blog"
     },
     "github": {
-      "org": "kamaldatta76",
+      "org": "TitanOctopii",
       "repos": ["TitanFlow"],
-      "api": "https://api.github.com"
+      "api": "https://api.github.com",
+      "notes": "Org created 2026-03-01. TitanFlow transfer in progress. Pending: TitanHomePortal, TitanPipeline, titanoctopii-docs, TitanShield (private)."
     },
     "anthropic": {
       "api": "https://api.anthropic.com/v1/messages",

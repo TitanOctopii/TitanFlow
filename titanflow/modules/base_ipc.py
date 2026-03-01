@@ -41,15 +41,40 @@ class ModuleBaseIPC:
     async def handle_telegram(self, command: str, args: str, context: Any) -> str | None:
         return None
 
+    _ipc_connected: bool = False
+
     async def start(self) -> None:
-        self._reader, self._writer = await asyncio.open_unix_connection(self.core_socket)
+        # Gracefully handle missing IPC socket — v0.3 core may not be running.
+        # Module registers successfully but operates in degraded mode until
+        # the core socket is available.
+        try:
+            self._reader, self._writer = await asyncio.open_unix_connection(self.core_socket)
+        except (FileNotFoundError, ConnectionRefusedError, OSError) as exc:
+            logger.warning(
+                "IPC socket %s unavailable (%s: %s) — module '%s' starting in "
+                "degraded mode (no IPC). Research feeds and processing disabled "
+                "until v0.3 core provides the socket.",
+                self.core_socket, type(exc).__name__, exc, self.module_id,
+            )
+            self._ipc_connected = False
+            return  # Module registered but idle — no run(), no heartbeat
+
         token_path = os.environ.get("TITANFLOW_MODULE_TOKEN", f"/etc/titanflow/secrets/{self.module_id}.token")
-        token = Path(token_path).read_text().strip()
+        try:
+            token = Path(token_path).read_text().strip()
+        except FileNotFoundError:
+            logger.warning(
+                "Module token file %s not found — module '%s' cannot authenticate with Core.",
+                token_path, self.module_id,
+            )
+            self._ipc_connected = False
+            return
 
         response = await self._rpc("auth.register", {"version": self.version}, token=token)
         if response.get("status") != "ok":
             raise RuntimeError(f"Auth failed: {response}")
         self.session_id = response["result"]["session_id"]
+        self._ipc_connected = True
         logger.info("Authenticated with Core. Session ID: %s", self.session_id)
         asyncio.create_task(self._listen())
         if self._heartbeat_interval > 0:
