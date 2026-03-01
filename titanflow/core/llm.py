@@ -178,7 +178,35 @@ class LLMClient:
                         messages=messages,
                         options={"temperature": temperature},
                     )
-            return response["message"]["content"]
+            content = response["message"]["content"]
+            # lfm2 (and some other models) silently return empty content on
+            # code-heavy or tool-heavy prompts instead of raising an error.
+            # Detect this and retry with fallback_model before giving up.
+            if not content and self.config.fallback_model and model != self.config.fallback_model:
+                logger.warning(
+                    "LLM chat: %s returned empty content; retrying with fallback %s",
+                    model,
+                    self.config.fallback_model,
+                )
+                async with self._sem:
+                    try:
+                        fb_response = await self._ollama.chat(
+                            model=self.config.fallback_model,
+                            messages=messages,
+                            options={
+                                "temperature": temperature,
+                                **({"num_ctx": self._num_ctx} if self._num_ctx else {}),
+                            },
+                            keep_alive=self._keep_alive,
+                        )
+                    except TypeError:
+                        fb_response = await self._ollama.chat(
+                            model=self.config.fallback_model,
+                            messages=messages,
+                            options={"temperature": temperature},
+                        )
+                content = fb_response["message"]["content"]
+            return content
         except Exception as e:
             logger.warning("Ollama chat failed (%s); escalating to cloud", e)
             if self.config.cloud.api_key:
