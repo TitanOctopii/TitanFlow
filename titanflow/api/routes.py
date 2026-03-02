@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from typing import Any
+import os
+import httpx
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -94,3 +96,28 @@ async def set_personality(request: Request, engine=Depends(get_engine), _=Depend
 
     PersonalityStore.set(engine.config.name, body)
     return {"status": "ok", "instance": engine.config.name, "applied": body}
+
+
+@router.post("/feature-proposal")
+async def feature_proposal(request: Request, engine=Depends(get_engine), _=Depends(require_api_key)) -> dict[str, Any]:
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Payload must be a JSON object")
+    required = {"type", "source", "for", "description", "priority", "proposed_by"}
+    missing = [k for k in required if k not in body]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Missing fields: {missing}")
+    if body.get("type") != "feature_proposal":
+        raise HTTPException(status_code=400, detail="type must be feature_proposal")
+
+    octopus_api = os.environ.get("TITAN_OCTOPUS_API", "").strip()
+    if not octopus_api:
+        raise HTTPException(status_code=500, detail="TITAN_OCTOPUS_API not set")
+
+    url = f\"{octopus_api.rstrip('/')}/proposals\"
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(url, json=body)
+        resp.raise_for_status()
+        data = resp.json()
+
+    return {"status": "ok", "forwarded": True, "octopus": data}
